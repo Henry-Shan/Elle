@@ -1,0 +1,13 @@
+name: Trigger Vercel Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger-vercel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send GET request to Vercel webhook
+        run: curl -X GET "https://api.vercel.com/v1/integrations/deploy/prj_Z1vU1AT3zy3MB9rbCzDhxO3hvSZI/a3MQLnPsOR"
