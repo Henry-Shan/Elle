@@ -29,7 +29,10 @@ const Footer = () => {
       links: [
         { name: "Privacy Policy", href: "/legal/privacy-policy" },
         { name: "Terms of Service", href: "/legal/terms-of-service" },
-        { name: "Customer Business Agreement", href: "/legal/customer-business-agreement" },
+        {
+          name: "Customer Business Agreement",
+          href: "/legal/customer-business-agreement",
+        },
         { name: "Security", href: "/legal/security" },
         { name: "Accessibility", href: "/legal/accessibility" },
       ],
@@ -45,9 +48,7 @@ const Footer = () => {
     },
     {
       title: "Connect",
-      links: [
-        { name: "Contact Us", href: "/connect/contact-us" }
-      ],
+      links: [{ name: "Contact Us", href: "/connect/contact-us" }],
     },
   ];
 
@@ -109,20 +110,6 @@ const Footer = () => {
           <p className="text-sm text-gray-500">
             &copy; {currentYear} Elle AI. All rights reserved.
           </p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
-            <Link
-              href="/connect/instagram"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <FaInstagram className="size-5" />
-            </Link>
-            <Link
-              href="/connect/twitter"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
-              <FaTwitter className="size-5" />
-            </Link>
-          </div>
         </div>
       </div>
     </footer>
