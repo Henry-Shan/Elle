@@ -7,21 +7,18 @@ const Footer = () => {
   const footerLinks = [
     {
       title: "About Us",
-      links: [
-        { name: "Our Mission", href: "/company/our-mission" },
-        { name: "Our Culture", href: "/company/our-culture" },
-      ],
+      links: [{ name: "Our Mission", href: "/company/our-mission" }],
     },
     {
       title: "Solutions",
       links: [
-        { name: "Healthcare", href: "/solutions/healthcare" },
-        { name: "E-commerce", href: "/solutions/ecommerce" },
-        { name: "SaaS", href: "/solutions/saas" },
-        { name: "EdTech", href: "/solutions/edtech" },
-        { name: "Real Estate", href: "/solutions/real-estate" },
-        { name: "Travel & Hospitality", href: "/solutions/travel-hospitality" },
-        { name: "Gaming & Esports", href: "/solutions/gaming-esports" },
+        { name: "Healthcare", href: "/chat" },
+        { name: "E-commerce", href: "/chat" },
+        { name: "SaaS", href: "/chat" },
+        { name: "EdTech", href: "/chat" },
+        { name: "Real Estate", href: "/chat" },
+        { name: "Travel & Hospitality", href: "/chat" },
+        { name: "Gaming & Esports", href: "/chat" },
       ],
     },
     {
@@ -29,10 +26,6 @@ const Footer = () => {
       links: [
         { name: "Privacy Policy", href: "/legal/privacy-policy" },
         { name: "Terms of Service", href: "/legal/terms-of-service" },
-        {
-          name: "Customer Business Agreement",
-          href: "/legal/customer-business-agreement",
-        },
         { name: "Security", href: "/legal/security" },
         { name: "Accessibility", href: "/legal/accessibility" },
       ],

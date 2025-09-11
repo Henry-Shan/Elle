@@ -46,7 +46,7 @@ import { useTheme } from "next-themes";
 const NavBar = () => {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
-  
+
   const navItems = [
     {
       name: "Solutions",
@@ -74,7 +74,10 @@ const NavBar = () => {
             {
               name: "SaaS",
               icon: <Cloud className="size-5 mr-2 text-gray-500" />,
-              items: [{ name: "Elle-saas-base", href: "/chat" }, { name: "Elle-saas-pro", href: "/chat" }],
+              items: [
+                { name: "Elle-saas-base", href: "/chat" },
+                { name: "Elle-saas-pro", href: "/chat" },
+              ],
             },
             {
               name: "EdTech",
@@ -113,7 +116,7 @@ const NavBar = () => {
       ],
     },
     { name: "Security", href: "/security" },
-    { name: "Help", href: "/help" },
+    { name: "Help", href: "mailto:help.elleai@outlook.com" },
   ];
 
   return (
@@ -141,84 +144,90 @@ const NavBar = () => {
           </span>
         </Link>
 
-
-      {/* Desktop Navigation */}
-      <NavigationMenu className="hidden md:flex flex-1 pl-10">
-        <NavigationMenuList>
-          {navItems.map((item) => (
-            <NavigationMenuItem key={item.name}>
-              {item.dropdown ? (
-                <>
-                  <NavigationMenuTrigger className="bg-transparent flex items-center gap-1 text-gray-700 dark:text-gray-300 [&>svg]:size-4 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2 transition-all duration-200">
-                    {item.name}
-                  </NavigationMenuTrigger>
-                  <NavigationMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xl rounded-xl">
-                    <div className="p-8 w-[620px]">
-                      {item.dropdown.map((section) => (
-                        <div key={section.title}>
-                          <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-6 uppercase tracking-wider">
-                            {section.title}
-                          </h4>
-                          <div className="grid grid-cols-2 gap-6">
-                            {section.items.map((industry, industryIndex) => (
-                              <div key={industry.name} className="space-y-2">
-                                <div className="flex items-center mb-2">
-                                  <div className="text-gray-400 dark:text-gray-500">
-                                    {industry.icon}
+        {/* Desktop Navigation */}
+        <NavigationMenu className="hidden md:flex flex-1 pl-10">
+          <NavigationMenuList>
+            {navItems.map((item) => (
+              <NavigationMenuItem key={item.name}>
+                {item.dropdown ? (
+                  <>
+                    <NavigationMenuTrigger className="bg-transparent flex items-center gap-1 text-gray-700 dark:text-gray-300 [&>svg]:size-4 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2 transition-all duration-200">
+                      {item.name}
+                    </NavigationMenuTrigger>
+                    <NavigationMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xl rounded-xl">
+                      <div className="p-8 w-[620px]">
+                        {item.dropdown.map((section) => (
+                          <div key={section.title}>
+                            <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-6 uppercase tracking-wider">
+                              {section.title}
+                            </h4>
+                            <div className="grid grid-cols-2 gap-6">
+                              {section.items.map((industry, industryIndex) => (
+                                <div key={industry.name} className="space-y-2">
+                                  <div className="flex items-center mb-2">
+                                    <div className="text-gray-400 dark:text-gray-500">
+                                      {industry.icon}
+                                    </div>
+                                    <h5 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                                      {industry.name}
+                                    </h5>
                                   </div>
-                                  <h5 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                                    {industry.name}
-                                  </h5>
+                                  <ul className="space-y-1">
+                                    {industry.items.map((product) => (
+                                      <li key={product.name}>
+                                        <NavigationMenuLink asChild>
+                                          <a
+                                            href={product.href || "/"}
+                                            className="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-[#FC7B11] dark:hover:text-[#FC7B11] hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                                          >
+                                            {product.name}
+                                          </a>
+                                        </NavigationMenuLink>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                  {industryIndex < section.items.length - 1 && (
+                                    <div className="border-t border-gray-100 dark:border-gray-700 mt-4" />
+                                  )}
                                 </div>
-                                <ul className="space-y-1">
-                                  {industry.items.map((product) => (
-                                    <li key={product.name}>
-                                      <NavigationMenuLink asChild>
-                                        <a
-                                          href={product.href || "/"}
-                                          className="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-[#FC7B11] dark:hover:text-[#FC7B11] hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
-                                        >
-                                          {product.name}
-                                        </a>
-                                      </NavigationMenuLink>
-                                    </li>
-                                  ))}
-                                </ul>
-                                {industryIndex < section.items.length - 1 && (
-                                  <div className="border-t border-gray-100 dark:border-gray-700 mt-4" />
-                                )}
-                              </div>
-                            ))}
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  </NavigationMenuContent>
-                </>
-              ) : (
-                <Link href={item.href} legacyBehavior passHref>
-                  <NavigationMenuLink
-                    className={`${navigationMenuTriggerStyle()} bg-transparent text-gray-700 dark:text-gray-300 transition-all duration-200 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2`}
-                  >
-                    {item.name}
-                  </NavigationMenuLink>
-                </Link>
-              )}
-            </NavigationMenuItem>
-          ))}
-        </NavigationMenuList>
-      </NavigationMenu>
+                        ))}
+                      </div>
+                    </NavigationMenuContent>
+                  </>
+                ) : (
+                  <Link href={item.href} legacyBehavior passHref>
+                    <NavigationMenuLink
+                      className={`${navigationMenuTriggerStyle()} bg-transparent text-gray-700 dark:text-gray-300 transition-all duration-200 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2`}
+                    >
+                      {item.name}
+                    </NavigationMenuLink>
+                  </Link>
+                )}
+              </NavigationMenuItem>
+            ))}
+          </NavigationMenuList>
+        </NavigationMenu>
 
         {/* Right Buttons */}
         <div className="hidden items-center space-x-2 md:flex">
           {session ? (
             <>
-          <Button variant="ghost" asChild className="justify-start bg-gray-900 text-white hover:bg-gray-700 hover:text-white rounded-lg px-2.5 py-1.5 text-sm">
-              <Link href="/chat">Dashboard</Link>
-            </Button>
+              <Button
+                variant="ghost"
+                asChild
+                className="justify-start bg-gray-900 text-white hover:bg-gray-700 hover:text-white rounded-lg px-2.5 py-1.5 text-sm"
+              >
+                <Link href="/chat">Dashboard</Link>
+              </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
+                  <Button
+                    variant="ghost"
+                    className="rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200"
+                  >
                     <Image
                       src={`https://avatar.vercel.sh/${session.user?.email}`}
                       alt={session.user?.email ?? "User Avatar"}
@@ -228,7 +237,10 @@ const NavBar = () => {
                     />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xl rounded-lg">
+                <DropdownMenuContent
+                  align="end"
+                  className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xl rounded-lg"
+                >
                   <DropdownMenuItem asChild>
                     <Link href="/chat" className="flex items-center">
                       <User className="mr-2 h-4 w-4" />
@@ -246,9 +258,13 @@ const NavBar = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
-            ) : (
+          ) : (
             <>
-              <Button variant="ghost" asChild className="text-gray-700 dark:text-gray-300 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-4 py-2 transition-all duration-200">
+              <Button
+                variant="ghost"
+                asChild
+                className="text-gray-700 dark:text-gray-300 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-4 py-2 transition-all duration-200"
+              >
                 <Link href="/login">Sign in</Link>
               </Button>
               <Button
@@ -264,7 +280,11 @@ const NavBar = () => {
         {/* Mobile Menu */}
         <Sheet>
           <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon" className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
               <MenuIcon className="size-5" />
             </Button>
           </SheetTrigger>
@@ -272,7 +292,9 @@ const NavBar = () => {
             side="right"
             className="w-[400px] px-6 overflow-y-auto bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700"
           >
-            <SheetTitle className="text-gray-900 dark:text-gray-100 text-lg font-semibold">Menu</SheetTitle>
+            <SheetTitle className="text-gray-900 dark:text-gray-100 text-lg font-semibold">
+              Menu
+            </SheetTitle>
             <div className="mt-6 flex flex-col space-y-6">
               {navItems.map((item) => (
                 <div key={item.name}>
@@ -284,7 +306,9 @@ const NavBar = () => {
                             <div className="text-gray-400 dark:text-gray-500">
                               {industry.icon}
                             </div>
-                            <span className="text-sm font-semibold">{industry.name}</span>
+                            <span className="text-sm font-semibold">
+                              {industry.name}
+                            </span>
                           </div>
                           <div className="ml-6 space-y-1">
                             {industry.items.map((product) => (
@@ -327,7 +351,11 @@ const NavBar = () => {
                 </Button>
                 {session ? (
                   <>
-                    <Button variant="ghost" asChild className="justify-start text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-3 py-2">
+                    <Button
+                      variant="ghost"
+                      asChild
+                      className="justify-start text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-3 py-2"
+                    >
                       <Link href="/chat">Dashboard</Link>
                     </Button>
                     <Button
@@ -340,10 +368,17 @@ const NavBar = () => {
                   </>
                 ) : (
                   <>
-                    <Button variant="ghost" asChild className="justify-start text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-3 py-2">
+                    <Button
+                      variant="ghost"
+                      asChild
+                      className="justify-start text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg px-3 py-2"
+                    >
                       <Link href="/login">Sign in</Link>
                     </Button>
-                    <Button asChild className="justify-start bg-[#FC7B11] hover:bg-[#FC7B11]/90 text-white rounded-lg px-3 py-2">
+                    <Button
+                      asChild
+                      className="justify-start bg-[#FC7B11] hover:bg-[#FC7B11]/90 text-white rounded-lg px-3 py-2"
+                    >
                       <Link href="/register">Get Started</Link>
                     </Button>
                   </>
