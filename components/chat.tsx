@@ -102,6 +102,13 @@ export function Chat({
             />
           )}
         </form>
+        
+        {/* Legal Disclaimer */}
+        <div className="flex justify-center px-4 pb-4">
+          <p className="text-xs text-gray-500 dark:text-zinc-400 text-center">
+            Elle AI can make mistakes; for legal advice, always consult a professional.
+          </p>
+        </div>
       </div>
 
       <Artifact

@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import Navbar from '@/components/navbar';
 import Footer from '@/components/footer';
+import { SessionProvider } from "next-auth/react";
 
 export const metadata: Metadata = {
   title: "Careers & Culture | Elle AI",
@@ -9,8 +10,9 @@ export const metadata: Metadata = {
 
 export default function CareersCulturePage() {
   return (
-    <div className="min-h-screen bg-white">
-      <Navbar />
+    <SessionProvider>
+      <div className="min-h-screen bg-white">
+        <Navbar />
       {/* Culture Section - Centered as requested */}
       <div className="py-16 bg-white">
         <div className="container mx-auto px-4">
@@ -188,6 +190,7 @@ export default function CareersCulturePage() {
         </div>
       </div>
       <Footer />
-    </div>
+      </div>
+    </SessionProvider>
   );
 }

@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
   NavigationMenu,
@@ -16,6 +20,13 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   MenuIcon,
   HeartPulse,
   ShoppingCart,
@@ -24,9 +35,14 @@ import {
   Home,
   Plane,
   Gamepad2,
+  User,
+  LogOut,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 
 const NavBar = () => {
+  const { data: session } = useSession();
+  
   const navItems = [
     {
       name: "Solutions",
@@ -39,53 +55,53 @@ const NavBar = () => {
               name: "Healthcare",
               icon: <HeartPulse className="size-5 mr-2 text-gray-500" />,
               items: [
-                { name: "Elle-healthcare-base" },
-                { name: "Elle-healthcare-pro" },
+                { name: "Elle-healthcare-base", href: "/solutions/healthcare" },
+                { name: "Elle-healthcare-pro", href: "/solutions/healthcare" },
               ],
             },
             {
               name: "E-commerce",
               icon: <ShoppingCart className="size-5 mr-2 text-gray-500" />,
               items: [
-                { name: "Elle-commerce-base" },
-                { name: "Elle-commerce-pro" },
+                { name: "Elle-commerce-base", href: "/solutions/ecommerce" },
+                { name: "Elle-commerce-pro", href: "/solutions/ecommerce" },
               ],
             },
             {
               name: "SaaS",
               icon: <Cloud className="size-5 mr-2 text-gray-500" />,
-              items: [{ name: "Elle-saas-base" }, { name: "Elle-saas-pro" }],
+              items: [{ name: "Elle-saas-base", href: "/solutions/saas" }, { name: "Elle-saas-pro", href: "/solutions/saas" }],
             },
             {
               name: "EdTech",
               icon: <School className="size-5 mr-2 text-gray-500" />,
               items: [
-                { name: "Elle-edtech-base" },
-                { name: "Elle-edtech-pro" },
+                { name: "Elle-edtech-base", href: "/solutions/edtech" },
+                { name: "Elle-edtech-pro", href: "/solutions/edtech" },
               ],
             },
             {
               name: "Real Estate",
               icon: <Home className="size-5 mr-2 text-gray-500" />,
               items: [
-                { name: "Elle-real-estate-base" },
-                { name: "Elle-real-estate-pro" },
+                { name: "Elle-real-estate-base", href: "/solutions/real-estate" },
+                { name: "Elle-real-estate-pro", href: "/solutions/real-estate" },
               ],
             },
             {
               name: "Travel & Hospitality",
               icon: <Plane className="size-5 mr-2 text-gray-500" />,
               items: [
-                { name: "Elle-travel-base" },
-                { name: "Elle-travel-pro" },
+                { name: "Elle-travel-base", href: "/solutions/travel-hospitality" },
+                { name: "Elle-travel-pro", href: "/solutions/travel-hospitality" },
               ],
             },
             {
               name: "Gaming & Esports",
               icon: <Gamepad2 className="size-5 mr-2 text-gray-500" />,
               items: [
-                { name: "Elle-esports-base" },
-                { name: "Elle-esports-pro" },
+                { name: "Elle-esports-base", href: "/solutions/gaming-esports" },
+                { name: "Elle-esports-pro", href: "/solutions/gaming-esports" },
               ],
             },
           ],
@@ -130,7 +146,7 @@ const NavBar = () => {
               <NavigationMenuItem key={item.name}>
                 {item.dropdown ? (
                   <>
-                    <NavigationMenuTrigger className="bg-transparent flex items-center gap-1 text-gray-800 [&>svg]:size-4 hover:bg-[#FC7B11]/50 rounded-full">
+                    <NavigationMenuTrigger className="bg-transparent flex items-center gap-1 text-gray-800 [&>svg]:size-4 hover:!bg-[#FC7B11] hover:!text-white rounded-full">
                       {item.name}
                     </NavigationMenuTrigger>
                     <NavigationMenuContent>
@@ -155,7 +171,7 @@ const NavBar = () => {
                                         <li key={product.name}>
                                           <NavigationMenuLink asChild>
                                             <a
-                                              href="/"
+                                              href={product.href || "/"}
                                               className="block py-1.5 text-gray-600 hover:text-gray-900 transition-colors"
                                             >
                                               {product.name}
@@ -179,7 +195,7 @@ const NavBar = () => {
                 ) : (
                   <Link href={item.href} legacyBehavior passHref>
                     <NavigationMenuLink
-                      className={`${navigationMenuTriggerStyle()} bg-transparent text-gray-9z00 transition-colors hover:bg-[#FC7B11]/50 rounded-full`}
+                      className={`${navigationMenuTriggerStyle()} bg-transparent text-gray-800 transition-colors hover:!bg-[#FC7B11] hover:!text-white rounded-full`}
                     >
                       {item.name}
                     </NavigationMenuLink>
@@ -192,15 +208,54 @@ const NavBar = () => {
 
         {/* Right Buttons */}
         <div className="hidden items-center space-x-2 md:flex">
-          <Button variant="ghost" asChild>
-            <Link href="/login">Sign in</Link>
-          </Button>
-          <Button
-            asChild
-            className="rounded-full bg-[#FC7B11] hover:bg-[#FC7B11]/90 font-semibold transition-colors"
-          >
-            <Link href="/register">Sign up for Free</Link>
-          </Button>
+          {session ? (
+            <>
+              <Button variant="ghost" asChild className="rounded-full hover:!bg-[#FC7B11] hover:!text-white">
+                <Link href="/chat">Dashboard</Link>
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="rounded-full p-1">
+                    <Image
+                      src={`https://avatar.vercel.sh/${session.user?.email}`}
+                      alt={session.user?.email ?? "User Avatar"}
+                      width={32}
+                      height={32}
+                      className="rounded-full"
+                    />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href="/chat" className="flex items-center">
+                      <User className="mr-2 h-4 w-4" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="text-red-600"
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" asChild className="rounded-full hover:!bg-[#FC7B11] hover:!text-white">
+                <Link href="/login">Sign in</Link>
+              </Button>
+              <Button
+                asChild
+                className="rounded-full bg-[#FC7B11] hover:bg-[#FC7B11]/90 font-semibold transition-colors"
+              >
+                <Link href="/register">Sign up for Free</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu */}
@@ -234,7 +289,7 @@ const NavBar = () => {
                                 className="justify-start text-left w-full"
                                 asChild
                               >
-                                <Link href={product.name}>
+                                <Link href={product.href || "/"}>
                                   <div className="text-gray-600">
                                     {product.name}
                                   </div>
@@ -249,12 +304,29 @@ const NavBar = () => {
                 </div>
               ))}
               <div className="mt-8 flex flex-col space-y-2">
-                <Button variant="outline" asChild>
-                  <Link href="/login">Sign in</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/register">Sign up for Free</Link>
-                </Button>
+                {session ? (
+                  <>
+                    <Button variant="outline" asChild>
+                      <Link href="/chat">Dashboard</Link>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                      className="text-red-600"
+                    >
+                      Sign out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" asChild>
+                      <Link href="/login">Sign in</Link>
+                    </Button>
+                    <Button asChild>
+                      <Link href="/register">Sign up for Free</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </SheetContent>
