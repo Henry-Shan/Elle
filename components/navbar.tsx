@@ -117,7 +117,7 @@ const NavBar = () => {
   ];
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b backdrop-blur-md bg-white/95 dark:bg-gray-900/95 border-gray-100 dark:border-gray-800">
+    <nav className="sticky top-0 z-50 w-full border-b backdrop-blur-md bg-white/15 dark:bg-gray-900/95 border-gray-100 dark:border-gray-800">
       <div className="flex h-14 items-center justify-between px-6 max-w-7xl mx-auto">
         {/* Logo */}
         <Link href="/" className="flex items-center group">
@@ -141,90 +141,90 @@ const NavBar = () => {
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
-{/* Desktop Navigation */}
-<NavigationMenu className="hidden md:flex flex-1 pl-32">
-  <NavigationMenuList>
-    {navItems.map((item) => (
-      <NavigationMenuItem key={item.name}>
-        {item.dropdown ? (
-          <>
-            <NavigationMenuTrigger className="bg-transparent flex items-center gap-1 text-gray-700 dark:text-gray-300 [&>svg]:size-4 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2 transition-all duration-200">
-              {item.name}
-            </NavigationMenuTrigger>
-            <NavigationMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xl rounded-xl">
-              <div className="p-8 w-[620px]">
-                {item.dropdown.map((section) => (
-                  <div key={section.title}>
-                    <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-6 uppercase tracking-wider">
-                      {section.title}
-                    </h4>
-                    <div className="grid grid-cols-2 gap-6">
-                      {section.items.map((industry, industryIndex) => (
-                        <div key={industry.name} className="space-y-2">
-                          <div className="flex items-center mb-2">
-                            <div className="text-gray-400 dark:text-gray-500">
-                              {industry.icon}
-                            </div>
-                            <h5 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
-                              {industry.name}
-                            </h5>
-                          </div>
-                          <ul className="space-y-1">
-                            {industry.items.map((product) => (
-                              <li key={product.name}>
-                                <NavigationMenuLink asChild>
-                                  <a
-                                    href={product.href || "/"}
-                                    className="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-[#FC7B11] dark:hover:text-[#FC7B11] hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
-                                  >
-                                    {product.name}
-                                  </a>
-                                </NavigationMenuLink>
-                              </li>
+
+      {/* Desktop Navigation */}
+      <NavigationMenu className="hidden md:flex flex-1 pl-10">
+        <NavigationMenuList>
+          {navItems.map((item) => (
+            <NavigationMenuItem key={item.name}>
+              {item.dropdown ? (
+                <>
+                  <NavigationMenuTrigger className="bg-transparent flex items-center gap-1 text-gray-700 dark:text-gray-300 [&>svg]:size-4 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2 transition-all duration-200">
+                    {item.name}
+                  </NavigationMenuTrigger>
+                  <NavigationMenuContent className="bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 shadow-xl rounded-xl">
+                    <div className="p-8 w-[620px]">
+                      {item.dropdown.map((section) => (
+                        <div key={section.title}>
+                          <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-6 uppercase tracking-wider">
+                            {section.title}
+                          </h4>
+                          <div className="grid grid-cols-2 gap-6">
+                            {section.items.map((industry, industryIndex) => (
+                              <div key={industry.name} className="space-y-2">
+                                <div className="flex items-center mb-2">
+                                  <div className="text-gray-400 dark:text-gray-500">
+                                    {industry.icon}
+                                  </div>
+                                  <h5 className="font-semibold text-gray-900 dark:text-gray-100 text-sm">
+                                    {industry.name}
+                                  </h5>
+                                </div>
+                                <ul className="space-y-1">
+                                  {industry.items.map((product) => (
+                                    <li key={product.name}>
+                                      <NavigationMenuLink asChild>
+                                        <a
+                                          href={product.href || "/"}
+                                          className="block py-2 px-3 text-sm text-gray-600 dark:text-gray-400 hover:text-[#FC7B11] dark:hover:text-[#FC7B11] hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-all duration-200"
+                                        >
+                                          {product.name}
+                                        </a>
+                                      </NavigationMenuLink>
+                                    </li>
+                                  ))}
+                                </ul>
+                                {industryIndex < section.items.length - 1 && (
+                                  <div className="border-t border-gray-100 dark:border-gray-700 mt-4" />
+                                )}
+                              </div>
                             ))}
-                          </ul>
-                          {industryIndex < section.items.length - 1 && (
-                            <div className="border-t border-gray-100 dark:border-gray-700 mt-4" />
-                          )}
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                ))}
-              </div>
-            </NavigationMenuContent>
-          </>
-        ) : (
-          <Link href={item.href} legacyBehavior passHref>
-            <NavigationMenuLink
-              className={`${navigationMenuTriggerStyle()} bg-transparent text-gray-700 dark:text-gray-300 transition-all duration-200 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2`}
-            >
-              {item.name}
-            </NavigationMenuLink>
-          </Link>
-        )}
-      </NavigationMenuItem>
-    ))}
-  </NavigationMenuList>
-</NavigationMenu>
+                  </NavigationMenuContent>
+                </>
+              ) : (
+                <Link href={item.href} legacyBehavior passHref>
+                  <NavigationMenuLink
+                    className={`${navigationMenuTriggerStyle()} bg-transparent text-gray-700 dark:text-gray-300 transition-all duration-200 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2`}
+                  >
+                    {item.name}
+                  </NavigationMenuLink>
+                </Link>
+              )}
+            </NavigationMenuItem>
+          ))}
+        </NavigationMenuList>
+      </NavigationMenu>
 
         {/* Right Buttons */}
-        <div className="hidden items-center space-x-3 md:flex">
+        <div className="hidden items-center space-x-2 md:flex">
           {session ? (
             <>
-              <Button variant="ghost" asChild className="text-gray-700 dark:text-gray-300 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-4 py-2 transition-all duration-200">
-                <Link href="/chat">Dashboard</Link>
-              </Button>
+          <Button variant="ghost" asChild className="justify-start bg-gray-900 text-white hover:bg-gray-700 hover:text-white rounded-lg px-2.5 py-1.5 text-sm">
+              <Link href="/chat">Dashboard</Link>
+            </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="rounded-lg p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200">
                     <Image
                       src={`https://avatar.vercel.sh/${session.user?.email}`}
                       alt={session.user?.email ?? "User Avatar"}
-                      width={32}
-                      height={32}
-                      className="rounded-full"
+                      width={36}
+                      height={36}
+                      className="rounded-lg"
                     />
                   </Button>
                 </DropdownMenuTrigger>

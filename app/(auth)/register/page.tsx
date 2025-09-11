@@ -40,7 +40,7 @@ export default function Page() {
       toast({ type: 'success', description: 'Account created successfully!' });
 
       setIsSuccessful(true);
-      router.refresh();
+      router.push("/chat");
     }
   }, [state, router]);
 
