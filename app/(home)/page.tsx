@@ -7,7 +7,7 @@ import { SessionProvider } from "next-auth/react";
 export default function HomePage() {
   return (
     <SessionProvider>
-      <div className="relative min-h-screen bg-[#F8F4ED]">
+      <div className="relative min-h-screen bg-[#F8F4ED] dark:bg-gray-900">
         <div className="relative">
           <Navbar />
           <main className="flex-1">

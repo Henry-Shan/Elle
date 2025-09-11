@@ -201,7 +201,7 @@ export default function HomepageInput() {
             setInput(e.target.value);
             adjustHeight();
           }}
-          className="min-h-[14px] max-h-[75dvh] resize-none rounded-2xl pb-10 pr-16 pl-6 pt-3"
+          className="min-h-[14px] max-h-[75dvh] resize-none rounded-2xl pb-10 pr-16 pl-6 pt-3 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           rows={3}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -212,21 +212,21 @@ export default function HomepageInput() {
         />
 
         <div className="absolute bottom-2 left-2">
-          <Button
-            className="rounded-full p-1.5 h-fit"
-            variant="ghost"
-            onClick={() => fileInputRef.current?.click()}
-          >
+        <Button
+          className="rounded-full p-1.5 h-fit hover:bg-gray-100 dark:hover:bg-gray-700"
+          variant="ghost"
+          onClick={() => fileInputRef.current?.click()}
+        >
             <PaperclipIcon size={14} />
           </Button>
         </div>
 
         <div className="absolute bottom-2 right-2">
-          <Button
-            className="rounded-full p-1.5 h-fit"
-            onClick={handleSubmit}
-            disabled={input.trim() === "" && attachments.length === 0}
-          >
+        <Button
+          className="rounded-full p-1.5 h-fit bg-[#FC7B11] hover:bg-[#FC7B11]/90 text-white"
+          onClick={handleSubmit}
+          disabled={input.trim() === "" && attachments.length === 0}
+        >
             <ArrowUpIcon size={14} />
           </Button>
         </div>
@@ -236,7 +236,7 @@ export default function HomepageInput() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
         <Button
           variant="outline"
-          className="rounded-full gap-2 px-4 py-2 text-sm"
+          className="rounded-full gap-2 px-4 py-2 text-sm border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
           onClick={() =>
             handleQuickQuestion(
               "What are the key clauses in a startup SAFE agreement?"
@@ -248,7 +248,7 @@ export default function HomepageInput() {
         </Button>
         <Button
           variant="outline"
-          className="rounded-full gap-2 px-4 py-2 text-sm"
+          className="rounded-full gap-2 px-4 py-2 text-sm border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
           onClick={() =>
             handleQuickQuestion(
               "How to protect IP when hiring remote developers?"
@@ -260,7 +260,7 @@ export default function HomepageInput() {
         </Button>
         <Button
           variant="outline"
-          className="rounded-full gap-2 px-4 py-2 text-sm"
+          className="rounded-full gap-2 px-4 py-2 text-sm border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
           onClick={() =>
             handleQuickQuestion("Draft a standard NDA for a SaaS startup.")
           }
@@ -270,7 +270,7 @@ export default function HomepageInput() {
         </Button>
         <Button
           variant="outline"
-          className="rounded-full gap-2 px-4 py-2 text-sm"
+          className="rounded-full gap-2 px-4 py-2 text-sm border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
           onClick={() =>
             handleQuickQuestion(
               "What's the difference between a C-corp and LLC?"
