@@ -32,9 +32,9 @@ export default function HomepageInput() {
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
   const phrases = [
-    "hiring remote workers . . .",
-    "drafting SaaS NDA . . .",
-    "raise pre-seed funding . . .",
+    "hiring remote workers",
+    "drafting SaaS NDA",
+    "raise pre-seed funding",
   ];
 
   // Handle typing animation

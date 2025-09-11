@@ -74,39 +74,44 @@ export function Chat({
           isReadonly={isReadonly}
         />
 
-        <Messages
-          chatId={id}
-          isLoading={isLoading}
-          votes={votes}
-          messages={messages}
-          setMessages={setMessages}
-          reload={reload}
-          isReadonly={isReadonly}
-          isArtifactVisible={isArtifactVisible}
-        />
-
-        <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
-          {!isReadonly && (
-            <MultimodalInput
-              chatId={id}
-              input={input}
-              setInput={setInput}
-              handleSubmit={handleSubmit}
-              isLoading={isLoading}
-              stop={stop}
-              attachments={attachments}
-              setAttachments={setAttachments}
-              messages={messages}
-              setMessages={setMessages}
-              append={append}
-            />
-          )}
-        </form>
+        <div className="flex-1 overflow-hidden relative">
+          <Messages
+            chatId={id}
+            isLoading={isLoading}
+            votes={votes}
+            messages={messages}
+            setMessages={setMessages}
+            reload={reload}
+            isReadonly={isReadonly}
+            isArtifactVisible={isArtifactVisible}
+          />
+          
+          {/* Floating Input Field */}
+          <div className="absolute bottom-0 left-0 right-0 z-10 bg-background/100 backdrop-blur-sm px-4 pb-4 md:pb-6 pt-2">
+            <div className="mx-auto w-full md:max-w-3xl">
+              {!isReadonly && (
+                <MultimodalInput
+                  chatId={id}
+                  input={input}
+                  setInput={setInput}
+                  handleSubmit={handleSubmit}
+                  isLoading={isLoading}
+                  stop={stop}
+                  attachments={attachments}
+                  setAttachments={setAttachments}
+                  messages={messages}
+                  setMessages={setMessages}
+                  append={append}
+                />
+              )}
+            </div>
+          </div>
+        </div>
         
         {/* Legal Disclaimer */}
         <div className="flex justify-center px-4 pb-4">
           <p className="text-xs text-gray-500 dark:text-zinc-400 text-center">
-            Elle AI can make mistakes; for legal advice, always consult a professional.
+            Elle AI can make mistakes, always consult a professional.
           </p>
         </div>
       </div>

@@ -11,9 +11,9 @@ const FileSchema = z.object({
     .refine((file) => file.size <= 5 * 1024 * 1024, {
       message: 'File size should be less than 5MB',
     })
-    // Update the file type based on the kind of files you want to accept
-    .refine((file) => ['image/jpeg', 'image/png'].includes(file.type), {
-      message: 'File type should be JPEG or PNG',
+    // Accept any file type under 5MB
+    .refine((file) => file.size > 0, {
+      message: 'File cannot be empty',
     }),
 });
 

@@ -30,36 +30,38 @@ function PureArtifactMessages({
   reload,
   isReadonly,
 }: ArtifactMessagesProps) {
-  const [messagesContainerRef, messagesEndRef] =
+  const [messagesContainerRef, messagesEndRef, isAtBottom, scrollToBottom] =
     useScrollToBottom<HTMLDivElement>();
 
   return (
-    <div
-      ref={messagesContainerRef}
-      className="flex flex-col gap-4 h-full items-center overflow-y-scroll px-4 pt-20"
-    >
-      {messages.map((message, index) => (
-        <PreviewMessage
-          chatId={chatId}
-          key={message.id}
-          message={message}
-          isLoading={isLoading && index === messages.length - 1}
-          index={index}
-          vote={
-            votes
-              ? votes.find((vote) => vote.messageId === message.id)
-              : undefined
-          }
-          setMessages={setMessages}
-          reload={reload}
-          isReadonly={isReadonly}
-        />
-      ))}
-
+    <div className="relative flex flex-col h-full">
       <div
-        ref={messagesEndRef}
-        className="shrink-0 min-w-[24px] min-h-[24px]"
-      />
+        ref={messagesContainerRef}
+        className="flex flex-col gap-4 h-full items-center overflow-y-scroll px-4 pt-20"
+      >
+        {messages.map((message, index) => (
+          <PreviewMessage
+            chatId={chatId}
+            key={message.id}
+            message={message}
+            isLoading={isLoading && index === messages.length - 1}
+            index={index}
+            vote={
+              votes
+                ? votes.find((vote) => vote.messageId === message.id)
+                : undefined
+            }
+            setMessages={setMessages}
+            reload={reload}
+            isReadonly={isReadonly}
+          />
+        ))}
+
+        <div
+          ref={messagesEndRef}
+          className="shrink-0 min-w-[24px] min-h-[24px]"
+        />
+      </div>
     </div>
   );
 }

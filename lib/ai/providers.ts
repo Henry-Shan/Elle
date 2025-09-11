@@ -3,67 +3,67 @@ import {
   extractReasoningMiddleware,
   wrapLanguageModel,
 } from "ai";
-import { deepseek } from "@ai-sdk/deepseek";
+import { openai } from "@ai-sdk/openai";
 
 export const myProvider = customProvider({
   languageModels: {
     // General model
-    "elle-general-base": deepseek("deepseek-chat"),
+    "elle-general-base": openai("gpt-4o"),
     "elle-general-pro": wrapLanguageModel({
-      model: deepseek("deepseek-reasoner"),
+      model: openai("gpt-4o"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
 
     // Healthcare
-    "elle-healthcare-base": deepseek("deepseek-chat"),
+    "elle-healthcare-base": openai("gpt-4o"),
     "elle-healthcare-pro": wrapLanguageModel({
-      model: deepseek("deepseek-reasoner"),
+      model: openai("gpt-4o"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
 
     // E-commerce
-    "elle-commerce-base": deepseek("deepseek-chat"),
+    "elle-commerce-base": openai("gpt-4o"),
     "elle-commerce-pro": wrapLanguageModel({
-      model: deepseek("deepseek-reasoner"),
+      model: openai("gpt-4o"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
 
     // SaaS
-    "elle-saas-base": deepseek("deepseek-chat"),
+    "elle-saas-base": openai("gpt-4o"),
     "elle-saas-pro": wrapLanguageModel({
-      model: deepseek("deepseek-reasoner"),
+      model: openai("gpt-4o"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
 
     // EdTech
-    "elle-edtech-base": deepseek("deepseek-chat"),
+    "elle-edtech-base": openai("gpt-4o"),
     "elle-edtech-pro": wrapLanguageModel({
-      model: deepseek("deepseek-reasoner"),
+      model: openai("gpt-4o"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
 
     // Real Estate
-    "elle-real-estate-base": deepseek("deepseek-chat"),
+    "elle-real-estate-base": openai("gpt-4o"),
     "elle-real-estate-pro": wrapLanguageModel({
-      model: deepseek("deepseek-reasoner"),
+      model: openai("gpt-4o"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
 
     // Travel & Hospitality
-    "elle-travel-base": deepseek("deepseek-chat"),
+    "elle-travel-base": openai("gpt-4o"),
     "elle-travel-pro": wrapLanguageModel({
-      model: deepseek("deepseek-reasoner"),
+      model: openai("gpt-4o"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
 
     // Gaming & Esports
-    "elle-esports-base": deepseek("deepseek-chat"),
+    "elle-esports-base": openai("gpt-4o"),
     "elle-esports-pro": wrapLanguageModel({
-      model: deepseek("deepseek-reasoner"),
+      model: openai("gpt-4o"),
       middleware: extractReasoningMiddleware({ tagName: "think" }),
     }),
 
-    "title-model": deepseek("deepseek-chat"),
-    "artifact-model": deepseek("deepseek-chat"),
+    "title-model": openai("o3-mini"),
+    "artifact-model": openai("o3-mini"),
   },
 });
