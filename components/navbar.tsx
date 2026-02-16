@@ -198,13 +198,13 @@ const NavBar = () => {
                     </NavigationMenuContent>
                   </>
                 ) : (
-                  <Link href={item.href} legacyBehavior passHref>
-                    <NavigationMenuLink
-                      className={`${navigationMenuTriggerStyle()} bg-transparent text-gray-700 dark:text-gray-300 transition-all duration-200 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2`}
-                    >
+                  <NavigationMenuLink asChild
+                    className={`${navigationMenuTriggerStyle()} bg-transparent text-gray-700 dark:text-gray-300 transition-all duration-200 hover:!bg-gray-100 dark:hover:!bg-gray-800 hover:!text-gray-900 dark:hover:!text-gray-100 rounded-lg px-3 py-2`}
+                  >
+                    <Link href={item.href}>
                       {item.name}
-                    </NavigationMenuLink>
-                  </Link>
+                    </Link>
+                  </NavigationMenuLink>
                 )}
               </NavigationMenuItem>
             ))}

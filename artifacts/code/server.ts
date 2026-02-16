@@ -23,7 +23,7 @@ export const codeDocumentHandler = createDocumentHandler<'code'>({
 
       if (type === 'object') {
         const { object } = delta;
-        const { code } = object;
+        const { code } = object as any;
 
         if (code) {
           dataStream.writeData({
@@ -55,7 +55,7 @@ export const codeDocumentHandler = createDocumentHandler<'code'>({
 
       if (type === 'object') {
         const { object } = delta;
-        const { code } = object;
+        const { code } = object as any;
 
         if (code) {
           dataStream.writeData({

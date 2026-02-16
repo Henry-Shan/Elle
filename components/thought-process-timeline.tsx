@@ -53,7 +53,7 @@ export function ThoughtProcessTimeline({
       >
         {isStreaming ? (
           <>
-            <span className="text-sm font-medium">Thinking...</span>
+            <span className="text-sm font-medium">j...</span>
             <span className="animate-spin text-muted-foreground">
               <LoaderIcon size={14} />
             </span>

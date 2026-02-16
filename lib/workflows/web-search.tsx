@@ -2,7 +2,8 @@
 /** @jsxImportSource @gensx/core */
 import * as gensx from "@gensx/core"
 import { GenerateText } from "@gensx/vercel-ai-sdk"
-import { openai } from "@ai-sdk/openai"
+import { deepseek } from "@ai-sdk/deepseek"
+import { mistral } from "@ai-sdk/mistral"
 
 interface SearchProps {
     usersOriginalQuery: string
@@ -16,7 +17,8 @@ interface SearchResult {
 }
 
 async function WebSearch(props: SearchProps) {
-    const languageModel = openai.responses("deepseek-chat");
+    const provider = process.env.AI_PROVIDER || "deepseek";
+    const languageModel = provider === "mistral" ? mistral("mistral-large-latest") : deepseek("deepseek-chat");
     const systemPrompt = `
         You are a search engine for AI news. 
         You will be given a query and you will need to search the web for the most relevant AI news for the last 24 hours based on the query. 
@@ -30,11 +32,8 @@ async function WebSearch(props: SearchProps) {
         Current date: (${props.date})
         Number of desired results: (${props.numberOfResults})
     `
-    const tools = {
-        web_search_preview: openai.tools.webSearchPreview()
-    }
     return {
-        result: <GenerateText system={systemPrompt} prompt={prompt} model={languageModel} tools={tools}> 
+        result: <GenerateText system={systemPrompt} prompt={prompt} model={languageModel}>
             {result => {return result.text}}
         </GenerateText>
     }

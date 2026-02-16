@@ -2,7 +2,8 @@
 /** @jsxImportSource @gensx/core */
 import * as gensx from "@gensx/core"
 import { GenerateText } from "@gensx/vercel-ai-sdk"
-import { openai } from "@ai-sdk/openai"
+import { deepseek } from "@ai-sdk/deepseek"
+import { mistral } from "@ai-sdk/mistral"
 
 interface CalculatorProps {
     expression: string
@@ -13,7 +14,8 @@ interface CalculatorResult {
 }
 
 async function Calculate(props: CalculatorProps) {
-    const languageModel = openai("deepseek-chat");
+    const provider = process.env.AI_PROVIDER || "deepseek";
+    const languageModel = provider === "mistral" ? mistral("mistral-large-latest") : deepseek("deepseek-chat");
     const systemPrompt = `You are a calculator. You will be given an expression and you will need to calculate the result. Return the result as a plain text string. With any steps taken to think through it.`
     const prompt = `Calculate the result of the following expression: ${props.expression}`
     return {

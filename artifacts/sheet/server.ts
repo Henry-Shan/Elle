@@ -23,7 +23,7 @@ export const sheetDocumentHandler = createDocumentHandler<'sheet'>({
 
       if (type === 'object') {
         const { object } = delta;
-        const { csv } = object;
+        const { csv } = object as any;
 
         if (csv) {
           dataStream.writeData({
@@ -60,7 +60,7 @@ export const sheetDocumentHandler = createDocumentHandler<'sheet'>({
 
       if (type === 'object') {
         const { object } = delta;
-        const { csv } = object;
+        const { csv } = object as any;
 
         if (csv) {
           dataStream.writeData({

@@ -51,9 +51,9 @@ export const requestSuggestions = ({
 
       for await (const element of elementStream) {
         const suggestion = {
-          originalText: element.originalSentence,
-          suggestedText: element.suggestedSentence,
-          description: element.description,
+          originalText: (element as any).originalSentence,
+          suggestedText: (element as any).suggestedSentence,
+          description: (element as any).description,
           id: generateUUID(),
           documentId: documentId,
           isResolved: false,
