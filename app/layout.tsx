@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
 import Script from 'next/script';
 import { ThemeProvider } from '@/components/theme-provider';
+import { Analytics } from "@vercel/analytics/next"
 
 import './globals.css';
 
@@ -10,8 +11,8 @@ export const metadata: Metadata = {
   title: 'Elle AI',
   description: 'Elle AI--Startup Legal AI',
   icons: {
-    icon: "/favicon.svg"
-  }
+    icon: '/favicon.svg',
+  },
 };
 
 export const viewport = {
@@ -53,13 +54,19 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-      <meta name="google-site-verification" content="7R5UVc7ptUwzx5P9DZXqOnF91MLw_24dQe66LsIvuBg" />
+        <meta
+          name="google-site-verification"
+          content="7R5UVc7ptUwzx5P9DZXqOnF91MLw_24dQe66LsIvuBg"
+        />
         <Script
           dangerouslySetInnerHTML={{
             __html: THEME_COLOR_SCRIPT,
           }}
         />
-        <Script async src="https://www.googletagmanager.com/gtag/js?id=G-VD6CJNQ5C2" />
+        <Script
+          async
+          src="https://www.googletagmanager.com/gtag/js?id=G-VD6CJNQ5C2"
+        />
         <Script>
           {`
         window.dataLayer = window.dataLayer || [];
@@ -67,7 +74,7 @@ export default async function RootLayout({
         gtag('js', new Date());
 
         gtag('config', 'G-VD6CJNQ5C2');`}
-      </Script>
+        </Script>
       </head>
       <body className="antialiased">
         <ThemeProvider
@@ -78,6 +85,7 @@ export default async function RootLayout({
         >
           <Toaster position="top-center" />
           {children}
+          <Analytics/>
         </ThemeProvider>
       </body>
     </html>
