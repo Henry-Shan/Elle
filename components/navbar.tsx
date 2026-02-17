@@ -55,7 +55,7 @@ const NavBar = () => {
               <Button
                 variant="ghost"
                 asChild
-                className="bg-white text-gray-900 hover:bg-gray-100 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
+                className="bg-white text-gray-900 hover:bg-[#FC7B11] hover:text-white rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
               >
                 <Link href="/chat">Dashboard</Link>
               </Button>
@@ -96,7 +96,21 @@ const NavBar = () => {
               </DropdownMenu>
             </>
           ) : (
-            null
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                asChild
+                className="text-gray-300 hover:text-white hover:bg-transparent"
+              >
+                <Link href="/login">Sign In</Link>
+              </Button>
+              <Button
+                asChild
+                className="bg-white text-gray-900 hover:bg-[#FC7B11] hover:text-white rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
+              >
+                <Link href="/register">Sign Up</Link>
+              </Button>
+            </div>
           )}
         </div>
 
@@ -137,9 +151,21 @@ const NavBar = () => {
                   </Button>
                 </>
               ) : (
-                <div className="text-sm text-gray-500 text-center py-4">
-                  Welcome to Elle AI
-                </div>
+                <>
+                  <Button
+                      variant="ghost"
+                      asChild
+                      className="justify-start text-gray-300 hover:text-white hover:bg-gray-800 rounded-lg px-3 py-2"
+                    >
+                      <Link href="/login">Sign In</Link>
+                    </Button>
+                    <Button
+                      asChild
+                      className="justify-start bg-white text-gray-900 hover:bg-[#FC7B11] hover:text-white rounded-lg px-3 py-2 transition-colors duration-200"
+                    >
+                      <Link href="/register">Sign Up</Link>
+                    </Button>
+                </>
               )}
             </div>
           </SheetContent>
