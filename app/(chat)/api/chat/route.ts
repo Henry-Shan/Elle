@@ -10,7 +10,6 @@ import { getMostRecentUserMessage } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { NextResponse } from "next/server";
 import ExecuteChatWorkflow from "@/lib/workflows/execute-chat";
-import { PDFParse } from "pdf-parse";
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
@@ -22,6 +21,7 @@ async function extractFileText(
   const response = await fetch(url);
 
   if (contentType === "application/pdf") {
+    const { PDFParse } = await import("pdf-parse");
     const buffer = await response.arrayBuffer();
     const parser = new PDFParse({ data: new Uint8Array(buffer) });
     const result = await parser.getText();
@@ -173,7 +173,9 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
-    return NextResponse.json({ error }, { status: 400 });
+    console.error('POST /api/chat error:', error);
+    const message = error instanceof Error ? error.message : String(error);
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
