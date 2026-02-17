@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   experimental: {
     ppr: true,
   },
+  serverExternalPackages: ['chromadb', 'onnxruntime-node'],
   images: {
     remotePatterns: [
       {
