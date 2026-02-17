@@ -108,7 +108,7 @@ const PurePreviewMessage = ({
                       <Button
                         data-testid={`message-edit`}
                         variant="ghost"
-                        className="px-2 h-fit rounded-full text-muted-foreground opacity-0 group-hover/message:opacity-100 mt-4"
+                        className="px-2 h-fit rounded-full text-muted-foreground opacity-0 group-hover/message:opacity-100 mt-1"
                         onClick={() => {
                           setMode('edit');
                         }}
@@ -189,25 +189,32 @@ export const ThinkingMessage = () => {
       data-testid="message-assistant-loading"
       className="w-full mx-auto max-w-3xl px-4 group/message"
       initial={{ y: 5, opacity: 0 }}
-      animate={{ y: 0, opacity: 1, transition: { delay: 0.3 } }}
+      animate={{ y: 0, opacity: 1, transition: { delay: 0.2 } }}
       data-role={role}
     >
       <div className="flex gap-4 w-full">
-        <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{
-              duration: 2,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: 'linear',
-            }}
-          >
+        <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background mt-1">
+          <div className="translate-y-px">
             <SparklesIcon size={14} />
-          </motion.div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <span className="text-sm font-medium">Thinking...</span>
+        <div className="flex items-center gap-2.5 py-1.5">
+          <motion.span
+            className="relative flex size-2"
+            animate={{ opacity: [0.15, 1, 0.15], scale: [0.8, 1.3, 0.8] }}
+            transition={{
+              duration: 1.2,
+              repeat: Number.POSITIVE_INFINITY,
+              ease: 'easeInOut',
+            }}
+          >
+            <span className="absolute inline-flex size-full rounded-full bg-foreground/40 animate-[ping_1s_ease-in-out_infinite]" />
+            <span className="relative inline-flex size-2 rounded-full bg-foreground" />
+          </motion.span>
+          <span className="text-xs font-mono tracking-wide uppercase text-foreground/80">
+            Initializing
+          </span>
         </div>
       </div>
     </motion.div>

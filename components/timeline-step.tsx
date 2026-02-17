@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { TimelineStep } from '@/lib/timeline';
 import type { StatusPhase } from '@/hooks/use-generation-status';
 import {
-  ChevronDownIcon,
   GlobeIcon,
   FileIcon,
   PencilEditIcon,
@@ -36,7 +35,7 @@ function padIndex(n: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Phase block (status pipeline phases)
+// Phase block (status pipeline phases) — shown during active pipeline
 // ---------------------------------------------------------------------------
 
 export function StatusPhaseItem({
@@ -67,7 +66,7 @@ export function StatusPhaseItem({
   return (
     <motion.div
       className="group/phase relative cursor-default"
-      animate={{ opacity: phase.isActive ? 1 : 0.45 }}
+      animate={{ opacity: phase.isActive ? 1 : 0.8 }}
       whileHover={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
@@ -75,12 +74,16 @@ export function StatusPhaseItem({
         {/* Dot indicator */}
         <div className="mt-1 shrink-0">
           {phase.isActive ? (
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-[ping_1.5s_ease-in-out_infinite] rounded-full bg-foreground/25" />
-              <span className="relative inline-flex size-2 rounded-full bg-foreground transition-colors duration-300" />
-            </span>
+            <motion.span
+              className="relative flex size-2"
+              animate={{ opacity: [0.15, 1, 0.15], scale: [0.8, 1.3, 0.8] }}
+              transition={{ duration: 1.2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+            >
+              <span className="absolute inline-flex size-full rounded-full bg-foreground/40 animate-[ping_1s_ease-in-out_infinite]" />
+              <span className="relative inline-flex size-2 rounded-full bg-foreground" />
+            </motion.span>
           ) : (
-            <span className="inline-flex size-2 rounded-full bg-muted-foreground/30 group-hover/phase:bg-foreground transition-colors duration-300" />
+            <span className="inline-flex size-2 rounded-full bg-muted-foreground/40 group-hover/phase:bg-foreground transition-colors duration-300" />
           )}
         </div>
 
@@ -91,7 +94,7 @@ export function StatusPhaseItem({
             className="flex items-center gap-2 w-full text-left"
             onClick={() => setExpanded((e) => !e)}
           >
-            <span className="text-[10px] font-mono tracking-widest text-muted-foreground/40 group-hover/phase:text-muted-foreground/70 transition-colors duration-300">
+            <span className="text-[10px] font-mono tracking-widest text-muted-foreground/50 group-hover/phase:text-muted-foreground/80 transition-colors duration-300">
               {padIndex(index)}
             </span>
             <span className="text-xs font-mono tracking-wide uppercase group-hover/phase:text-foreground transition-colors duration-300">
@@ -128,8 +131,8 @@ export function StatusPhaseItem({
                         className={cx(
                           'text-[11px] font-mono leading-relaxed block transition-colors duration-300',
                           isCurrent
-                            ? 'text-foreground/70 group-hover/phase:text-foreground/90'
-                            : 'text-muted-foreground/40 group-hover/phase:text-muted-foreground/80',
+                            ? 'text-foreground/80 group-hover/phase:text-foreground'
+                            : 'text-muted-foreground/55 group-hover/phase:text-muted-foreground/90',
                         )}
                         initial={{ opacity: 0, x: -4 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -146,7 +149,7 @@ export function StatusPhaseItem({
 
           {/* Collapsed: show last step as summary */}
           {!expanded && latestStep && (
-            <span className="text-[11px] font-mono text-muted-foreground/35 group-hover/phase:text-muted-foreground/70 block mt-0.5 truncate transition-colors duration-300">
+            <span className="text-[11px] font-mono text-muted-foreground/45 group-hover/phase:text-muted-foreground/80 block mt-0.5 truncate transition-colors duration-300">
               {latestStep}
             </span>
           )}
@@ -158,6 +161,85 @@ export function StatusPhaseItem({
         <div className="absolute left-[3px] top-[22px] bottom-0 w-px bg-border/30" />
       )}
     </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Pipeline summary — collapsed single block after pipeline completes
+// ---------------------------------------------------------------------------
+
+export function PipelineSummaryBlock({
+  phases,
+  toolSteps = [],
+}: {
+  phases: StatusPhase[];
+  toolSteps?: TimelineStep[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const totalSteps = phases.reduce((sum, p) => sum + p.steps.length, 0);
+  const totalItems = phases.length + toolSteps.length;
+
+  return (
+    <div className="group/summary relative cursor-default opacity-50 hover:opacity-80 transition-opacity duration-300">
+      <div className="flex items-center gap-2.5 py-1.5">
+        <span className="inline-flex size-2 shrink-0 rounded-full bg-muted-foreground/40 group-hover/summary:bg-foreground transition-colors duration-300" />
+        <div className="flex-1 min-w-0">
+          <button
+            type="button"
+            className="flex items-center gap-2 w-full text-left"
+            onClick={() => setExpanded((e) => !e)}
+          >
+            <span className="text-xs font-mono tracking-wide uppercase group-hover/summary:text-foreground transition-colors duration-300">
+              Researched
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground/40 group-hover/summary:text-muted-foreground/70 transition-colors duration-300">
+              {totalItems} phases · {totalSteps} steps
+            </span>
+          </button>
+
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                key="summary-phases"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="mt-1.5 flex flex-col gap-0.5">
+                  {phases.map((phase, i) => (
+                    <span
+                      key={phase.name}
+                      className="text-[11px] font-mono text-muted-foreground/55 group-hover/summary:text-muted-foreground/90 leading-relaxed block transition-colors duration-300"
+                    >
+                      {padIndex(i + 1)} {phase.name}
+                      <span className="text-muted-foreground/35 group-hover/summary:text-muted-foreground/60 transition-colors duration-300">
+                        {' '}&mdash; {phase.steps[phase.steps.length - 1]}
+                      </span>
+                    </span>
+                  ))}
+                  {toolSteps.map((step) => (
+                    <span
+                      key={step.id}
+                      className="text-[11px] font-mono text-muted-foreground/55 group-hover/summary:text-muted-foreground/90 leading-relaxed block transition-colors duration-300"
+                    >
+                      {padIndex(phases.length + 1)}{' '}
+                      {step.toolDisplayName || step.toolName}
+                      {step.type === 'tool' && step.toolInvocation?.state === 'result' && (
+                        <span className="text-muted-foreground/35 group-hover/summary:text-muted-foreground/60 transition-colors duration-300">
+                          {' '}&mdash; Complete
+                        </span>
+                      )}
+                    </span>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -191,19 +273,23 @@ export function TimelineStepItem({
   return (
     <motion.div
       className="group/step py-1.5 cursor-default"
-      animate={{ opacity: isCompleted ? 0.45 : 1 }}
+      animate={{ opacity: isCompleted ? 0.8 : 1 }}
       whileHover={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
       <div className="flex items-start gap-2.5">
         <div className="mt-1 shrink-0">
           {!isCompleted ? (
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-[ping_1.5s_ease-in-out_infinite] rounded-full bg-foreground/25" />
+            <motion.span
+              className="relative flex size-2"
+              animate={{ opacity: [0.15, 1, 0.15], scale: [0.8, 1.3, 0.8] }}
+              transition={{ duration: 1.2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+            >
+              <span className="absolute inline-flex size-full rounded-full bg-foreground/40 animate-[ping_1s_ease-in-out_infinite]" />
               <span className="relative inline-flex size-2 rounded-full bg-foreground" />
-            </span>
+            </motion.span>
           ) : (
-            <span className="inline-flex size-2 rounded-full bg-muted-foreground/30 group-hover/step:bg-foreground transition-colors duration-300" />
+            <span className="inline-flex size-2 rounded-full bg-muted-foreground/40 group-hover/step:bg-foreground transition-colors duration-300" />
           )}
         </div>
 
@@ -214,7 +300,7 @@ export function TimelineStepItem({
             onClick={toggleFromTitle}
           >
             {ToolIcon && (
-              <span className="text-muted-foreground/50 group-hover/step:text-muted-foreground transition-colors duration-300">
+              <span className="text-muted-foreground/60 group-hover/step:text-muted-foreground transition-colors duration-300">
                 <ToolIcon size={13} />
               </span>
             )}

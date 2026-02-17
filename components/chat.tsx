@@ -51,7 +51,6 @@ export function Chat({
     generateId: generateUUID,
     onFinish: () => {
       mutate('/api/history');
-      resetStatus();
     },
     onError: (error) => {
       console.error('Chat error:', error);

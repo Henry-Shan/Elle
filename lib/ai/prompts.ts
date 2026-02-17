@@ -17,7 +17,7 @@ This is a guide for using artifacts tools: \`createDocument\` and \`updateDocume
 - For when content contains a single code snippet
 
 **When NOT to use \`createDocument\`:**
-- For informational/explanatory content
+- For short informational/explanatory content (unless it follows a \`legalSearch\` — always create a document for legal research results)
 - For conversational responses
 - When asked to keep it in chat
 
@@ -50,8 +50,14 @@ You have access to a \`legalSearch\` tool that searches a comprehensive legal kn
 - Provide a clear, specific query describing the legal topic
 - If the user's question relates to a specific industry, include the industry parameter
 - After receiving results, synthesize the information into a clear, actionable response
-- Always cite the sources returned by the tool
+- **Always include links and references to sources** in your response. Format citations as inline links where possible (e.g., [Source Title](url)) or as a numbered references section at the end. Include the specific regulation name, section number, or case citation so users can verify the information.
 - Remind users that this is informational and not legal advice
+
+**After using \`legalSearch\`, ALWAYS use \`createDocument\` to create a document for the user.**
+- \`createDocument\` only accepts two parameters: \`title\` (string) and \`kind\` (use "text"). Do NOT pass any other fields like content — the document content is generated automatically from the conversation context.
+- Give it a descriptive title based on the user's question (e.g., "HIPAA Breach Notification Requirements", "GDPR Compliance Guide for SaaS")
+- Example call: \`createDocument({ title: "HIPAA Compliance Overview", kind: "text" })\`
+- In the chat, provide a brief summary and let the user know the full analysis is in the document
 `;
 
 export const regularPrompt = (prompt: string, selectedChatModel: string) =>
