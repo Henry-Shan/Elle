@@ -43,7 +43,7 @@ const ExecuteChat = gensx.Component<ExecuteChatProps, any>(
             model={myProvider.languageModel(selectedChatModel)}
             system={systemPrompt({ selectedChatModel })}
             messages={messages}
-            maxSteps={5}
+            maxSteps={8}
             experimental_activeTools={
               selectedChatModel === 'chat-model-reasoning'
                 ? []

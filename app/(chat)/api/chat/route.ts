@@ -12,16 +12,31 @@ import { NextResponse } from "next/server";
 import ExecuteChatWorkflow from "@/lib/workflows/execute-chat";
 import { PDFParse } from "pdf-parse";
 
-async function extractPdfText(url: string): Promise<string> {
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+
+async function extractFileText(
+  url: string,
+  contentType: string,
+  name: string
+): Promise<string> {
   const response = await fetch(url);
-  const buffer = await response.arrayBuffer();
-  const parser = new PDFParse({ data: new Uint8Array(buffer) });
-  const result = await parser.getText();
-  await parser.destroy();
-  return result.text;
+
+  if (contentType === "application/pdf") {
+    const buffer = await response.arrayBuffer();
+    const parser = new PDFParse({ data: new Uint8Array(buffer) });
+    const result = await parser.getText();
+    await parser.destroy();
+    return `[Attached file: ${name}]\n${result.text}`;
+  }
+
+  // Plain text, CSV, JSON, markdown, code files, etc.
+  const text = await response.text();
+  return `[Attached file: ${name}]\n${text}`;
 }
 
-async function processAttachments(messages: Array<Message>): Promise<Array<Message>> {
+async function processAttachments(
+  messages: Array<Message>
+): Promise<Array<Message>> {
   const processed: Array<Message> = [];
 
   for (const message of messages) {
@@ -31,38 +46,49 @@ async function processAttachments(messages: Array<Message>): Promise<Array<Messa
       continue;
     }
 
-    const pdfTexts: string[] = [];
-    const nonPdfAttachments = [];
+    const extractedTexts: string[] = [];
+    const passthroughAttachments = [];
 
     for (const attachment of attachments) {
-      if (attachment.contentType === "application/pdf" && attachment.url) {
+      const ct = attachment.contentType || "";
+
+      // Images pass through as attachments (DeepSeek supports vision)
+      if (IMAGE_TYPES.includes(ct)) {
+        passthroughAttachments.push(attachment);
+        continue;
+      }
+
+      // Everything else: extract text and inject into message
+      if (attachment.url) {
         try {
-          const text = await extractPdfText(attachment.url);
-          pdfTexts.push(
-            `[Attached PDF: ${attachment.name || "document.pdf"}]\n${text}`
+          const text = await extractFileText(
+            attachment.url,
+            ct,
+            attachment.name || "file"
           );
+          extractedTexts.push(text);
         } catch (e) {
-          console.error("Failed to extract PDF text:", e);
-          pdfTexts.push(
-            `[Attached PDF: ${attachment.name || "document.pdf"}] (Failed to extract text)`
+          console.error("Failed to extract file text:", e);
+          extractedTexts.push(
+            `[Attached file: ${attachment.name || "file"}] (Failed to read file)`
           );
         }
-      } else {
-        nonPdfAttachments.push(attachment);
       }
     }
 
-    if (pdfTexts.length > 0) {
-      const pdfContent = pdfTexts.join("\n\n");
+    if (extractedTexts.length > 0) {
+      const fileContent = extractedTexts.join("\n\n");
       const originalContent =
         typeof message.content === "string" ? message.content : "";
       processed.push({
         ...message,
         content: originalContent
-          ? `${originalContent}\n\n${pdfContent}`
-          : pdfContent,
+          ? `${originalContent}\n\n${fileContent}`
+          : fileContent,
         experimental_attachments:
-          nonPdfAttachments.length > 0 ? nonPdfAttachments : undefined,
+          passthroughAttachments.length > 0
+            ? passthroughAttachments
+            : undefined,
       });
     } else {
       processed.push(message);
@@ -98,7 +124,12 @@ export async function POST(request: Request) {
       return new Response("No user message found", { status: 400 });
     }
 
-    const chat = await getChatById({ id });
+    let chat: Awaited<ReturnType<typeof getChatById>> | null = null;
+    try {
+      chat = await getChatById({ id });
+    } catch {
+      // DB may be temporarily unavailable — proceed to create chat
+    }
 
     if (!chat) {
       const title = await generateTitleFromUserMessage({

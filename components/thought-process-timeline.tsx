@@ -42,8 +42,13 @@ export function ThoughtProcessTimeline({
 
   // -----------------------------------------------------------------------
   // Staggered reveal — show one phase at a time, 600ms apart
+  // If pipeline is already done on mount, show all immediately (no stagger)
   // -----------------------------------------------------------------------
-  const [revealedCount, setRevealedCount] = useState(0);
+  const pipelineDoneOnMount = useRef(!pipelineActive && phases.length > 0);
+  const hadSummaryRef = useRef(false);
+  const [revealedCount, setRevealedCount] = useState(
+    pipelineDoneOnMount.current ? phases.length : 0,
+  );
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scheduleNextReveal = useCallback(
@@ -63,6 +68,8 @@ export function ThoughtProcessTimeline({
   useEffect(() => {
     if (phases.length === 0) {
       setRevealedCount(0);
+      pipelineDoneOnMount.current = false;
+      hadSummaryRef.current = false;
       if (timerRef.current) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
@@ -71,7 +78,9 @@ export function ThoughtProcessTimeline({
   }, [phases.length]);
 
   useEffect(() => {
-    scheduleNextReveal(revealedCount, phases.length);
+    if (!pipelineDoneOnMount.current) {
+      scheduleNextReveal(revealedCount, phases.length);
+    }
   }, [revealedCount, phases.length, scheduleNextReveal]);
 
   useEffect(() => {
@@ -94,6 +103,10 @@ export function ThoughtProcessTimeline({
 
   const allRevealed = revealedCount >= phases.length;
   const effectivePipelineActive = pipelineActive || !allRevealed;
+
+  // Skip mount animations when phases are already complete (e.g., artifact
+  // panel mounting a fresh timeline, or transitioning from summary to phases)
+  const skipAnimations = pipelineDoneOnMount.current || hadSummaryRef.current;
 
   // Delay showing legal search block after phases finish
   const [showLegalSearch, setShowLegalSearch] = useState(false);
@@ -120,6 +133,9 @@ export function ThoughtProcessTimeline({
   const pipelineDone = visiblePhases.length > 0 && !effectivePipelineActive;
   const showSummary = pipelineDone && isLoading;
 
+  // Track that summary was shown so we skip animations when switching back
+  if (showSummary) hadSummaryRef.current = true;
+
   return (
     <div className="flex flex-col">
       {/* While generating response: single collapsed summary */}
@@ -139,7 +155,7 @@ export function ThoughtProcessTimeline({
         visiblePhases.map((phase, i) => (
           <motion.div
             key={phase.name}
-            initial={{ opacity: 0, height: 0 }}
+            initial={skipAnimations ? false : { opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             transition={{ duration: 0.25 }}
           >
@@ -156,7 +172,7 @@ export function ThoughtProcessTimeline({
       {!showSummary && showLegalSearch && (
         <motion.div
           key="legal-search-group"
-          initial={{ opacity: 0, height: 0 }}
+          initial={skipAnimations ? false : { opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           transition={{ duration: 0.25 }}
         >
@@ -173,7 +189,7 @@ export function ThoughtProcessTimeline({
           {otherSteps.map((step) => (
             <motion.div
               key={step.id}
-              initial={{ opacity: 0, y: 4 }}
+              initial={skipAnimations ? false : { opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.15 }}
             >

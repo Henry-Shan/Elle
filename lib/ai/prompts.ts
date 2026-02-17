@@ -53,11 +53,12 @@ You have access to a \`legalSearch\` tool that searches a comprehensive legal kn
 - **Always include links and references to sources** in your response. Format citations as inline links where possible (e.g., [Source Title](url)) or as a numbered references section at the end. Include the specific regulation name, section number, or case citation so users can verify the information.
 - Remind users that this is informational and not legal advice
 
-**After using \`legalSearch\`, ALWAYS use \`createDocument\` to create a document for the user.**
+**MANDATORY: After using \`legalSearch\`, you MUST call \`createDocument\` to create a document. This is NOT optional — every single \`legalSearch\` must be followed by a \`createDocument\` call. Failure to create a document is a critical error.**
 - \`createDocument\` only accepts two parameters: \`title\` (string) and \`kind\` (use "text"). Do NOT pass any other fields like content — the document content is generated automatically from the conversation context.
 - Give it a descriptive title based on the user's question (e.g., "HIPAA Breach Notification Requirements", "GDPR Compliance Guide for SaaS")
 - Example call: \`createDocument({ title: "HIPAA Compliance Overview", kind: "text" })\`
 - **IMPORTANT: Do NOT repeat the full analysis in the chat message.** The document already contains the complete response. In the chat, only write a brief 1-2 sentence summary telling the user what was found and that the full details are in the document. Never duplicate the document content in the chat text.
+- Your response flow MUST be: 1) call \`legalSearch\`, 2) call \`createDocument\`, 3) write a brief chat summary. Never skip step 2.
 `;
 
 export const regularPrompt = (prompt: string, selectedChatModel: string) =>

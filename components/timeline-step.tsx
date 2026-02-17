@@ -492,10 +492,17 @@ function ContentPreview({
   }
 
   return (
-    <button
-      type="button"
-      className="relative text-left w-full"
+    <div
+      role="button"
+      tabIndex={0}
+      className="relative text-left w-full cursor-pointer"
       onClick={onExpand}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onExpand();
+        }
+      }}
     >
       <div className="max-h-[4.2em] overflow-hidden leading-[1.4em]">
         {children}
@@ -504,7 +511,7 @@ function ContentPreview({
       <span className="text-[10px] font-mono text-muted-foreground/40 mt-1 inline-block hover:text-muted-foreground transition-colors duration-300">
         show more
       </span>
-    </button>
+    </div>
   );
 }
 
