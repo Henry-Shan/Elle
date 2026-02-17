@@ -95,9 +95,12 @@ const PurePreviewMessage = ({
               <motion.div
                 data-testid="message-content"
                 className="flex flex-row gap-2 items-start"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: message.role === 'assistant' ? 0.6 : 0.3,
+                  ease: 'easeOut',
+                }}
               >
                 {message.role === 'user' && !isReadonly && (
                   <Tooltip>

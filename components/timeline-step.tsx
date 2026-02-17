@@ -1,12 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { TimelineStep } from '@/lib/timeline';
 import type { StatusPhase } from '@/hooks/use-generation-status';
 import {
   ChevronDownIcon,
-  LoaderIcon,
   GlobeIcon,
   FileIcon,
   PencilEditIcon,
@@ -32,93 +31,131 @@ function getToolIcon(toolName?: string) {
   return toolIconMap[toolName] || null;
 }
 
+function padIndex(n: number) {
+  return String(n).padStart(2, '0');
+}
+
 // ---------------------------------------------------------------------------
-// Phase block — groups multiple status sub-steps under a single header
+// Phase block (status pipeline phases)
 // ---------------------------------------------------------------------------
 
-export function StatusPhaseItem({ phase }: { phase: StatusPhase }) {
-  const [collapsed, setCollapsed] = useState(false);
+export function StatusPhaseItem({
+  phase,
+  index,
+  isLast,
+  pipelineActive,
+}: {
+  phase: StatusPhase;
+  index: number;
+  isLast: boolean;
+  pipelineActive: boolean;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const wasActive = useRef(phase.isActive);
+
+  // Auto-collapse when phase transitions from active → done
+  useEffect(() => {
+    if (wasActive.current && !phase.isActive) {
+      const timer = setTimeout(() => setExpanded(false), 200);
+      return () => clearTimeout(timer);
+    }
+    wasActive.current = phase.isActive;
+  }, [phase.isActive]);
+
   const latestStep = phase.steps[phase.steps.length - 1];
 
   return (
     <motion.div
-      className="py-1"
+      className="group/phase relative cursor-default"
       animate={{ opacity: phase.isActive ? 1 : 0.45 }}
-      transition={{ duration: 0.5 }}
+      whileHover={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
     >
-      {/* Phase header */}
-      <button
-        type="button"
-        className="flex items-center gap-2 w-full text-left group cursor-pointer"
-        onClick={() => setCollapsed((c) => !c)}
-      >
-        {phase.isActive && (
-          <span className="text-muted-foreground animate-spin shrink-0">
-            <LoaderIcon size={14} />
-          </span>
-        )}
-        <span className="text-sm font-medium">{phase.name}</span>
-        {phase.isActive && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-            Running
-          </span>
-        )}
-        {!phase.isActive && phase.steps.length > 1 && (
-          <span className="text-xs text-muted-foreground">
-            {phase.steps.length} steps
-          </span>
-        )}
-        <ChevronDownIcon
-          size={14}
-          className={cx(
-            'ml-auto transition-transform duration-200 text-muted-foreground opacity-0 group-hover:opacity-100',
-            !collapsed ? 'rotate-0' : '-rotate-90',
+      <div className="flex items-start gap-2.5 py-1.5">
+        {/* Dot indicator */}
+        <div className="mt-1 shrink-0">
+          {phase.isActive ? (
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-[ping_1.5s_ease-in-out_infinite] rounded-full bg-foreground/25" />
+              <span className="relative inline-flex size-2 rounded-full bg-foreground transition-colors duration-300" />
+            </span>
+          ) : (
+            <span className="inline-flex size-2 rounded-full bg-muted-foreground/30 group-hover/phase:bg-foreground transition-colors duration-300" />
           )}
-        />
-      </button>
-
-      {/* Sub-steps */}
-      <AnimatePresence initial={false}>
-        {!collapsed && (
-          <motion.div
-            key="sub-steps"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div className="ml-5 mt-1 flex flex-col gap-0.5 border-l border-border/50 pl-3">
-              {phase.steps.map((step, i) => {
-                const isCurrent = phase.isActive && i === phase.steps.length - 1;
-                return (
-                  <motion.div
-                    key={`${phase.name}-${i}`}
-                    className="flex items-center gap-1.5"
-                    animate={{ opacity: isCurrent ? 1 : 0.5 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {isCurrent && (
-                      <span className="text-muted-foreground animate-spin shrink-0">
-                        <LoaderIcon size={10} />
-                      </span>
-                    )}
-                    <span className={cx('text-xs text-muted-foreground', { 'font-medium': isCurrent })}>
-                      {step}
-                    </span>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Collapsed summary — show latest step inline */}
-      {collapsed && latestStep && (
-        <div className="ml-5 mt-0.5">
-          <span className="text-xs text-muted-foreground">{latestStep}</span>
         </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <button
+            type="button"
+            className="flex items-center gap-2 w-full text-left"
+            onClick={() => setExpanded((e) => !e)}
+          >
+            <span className="text-[10px] font-mono tracking-widest text-muted-foreground/40 group-hover/phase:text-muted-foreground/70 transition-colors duration-300">
+              {padIndex(index)}
+            </span>
+            <span className="text-xs font-mono tracking-wide uppercase group-hover/phase:text-foreground transition-colors duration-300">
+              {phase.name}
+            </span>
+            {phase.isActive && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-[9px] font-mono tracking-widest px-1.5 py-px rounded bg-foreground/8 text-foreground/50"
+              >
+                RUNNING
+              </motion.span>
+            )}
+          </button>
+
+          {/* Expanded sub-steps */}
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                key="steps"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="mt-1.5 flex flex-col gap-px">
+                  {phase.steps.map((step, i) => {
+                    const isCurrent = phase.isActive && i === phase.steps.length - 1;
+                    return (
+                      <motion.span
+                        key={`${phase.name}-${i}`}
+                        className={cx(
+                          'text-[11px] font-mono leading-relaxed block transition-colors duration-300',
+                          isCurrent
+                            ? 'text-foreground/70 group-hover/phase:text-foreground/90'
+                            : 'text-muted-foreground/40 group-hover/phase:text-muted-foreground/80',
+                        )}
+                        initial={{ opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {step}
+                      </motion.span>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Collapsed: show last step as summary */}
+          {!expanded && latestStep && (
+            <span className="text-[11px] font-mono text-muted-foreground/35 group-hover/phase:text-muted-foreground/70 block mt-0.5 truncate transition-colors duration-300">
+              {latestStep}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Connector line between phases */}
+      {(!isLast || pipelineActive) && (
+        <div className="absolute left-[3px] top-[22px] bottom-0 w-px bg-border/30" />
       )}
     </motion.div>
   );
@@ -153,91 +190,91 @@ export function TimelineStepItem({
 
   return (
     <motion.div
-      className="py-1"
+      className="group/step py-1.5 cursor-default"
       animate={{ opacity: isCompleted ? 0.45 : 1 }}
-      transition={{ duration: 0.5 }}
+      whileHover={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
     >
-      {/* Header */}
-      <button
-        type="button"
-        className="flex items-center gap-2 cursor-pointer w-full text-left group"
-        onClick={toggleFromTitle}
-      >
-        {!isCompleted && (
-          <span className="text-muted-foreground animate-spin shrink-0">
-            <LoaderIcon size={14} />
-          </span>
-        )}
-        {ToolIcon && (
-          <span className="text-muted-foreground">
-            <ToolIcon size={14} />
-          </span>
-        )}
-        <span className="text-sm font-medium">
-          {step.type === 'reasoning'
-            ? 'Reasoning'
-            : step.toolDisplayName || step.toolName}
-        </span>
-        {!isCompleted && step.type === 'tool' && (
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
-            Running
-          </span>
-        )}
-        {hasContent && (
-          <ChevronDownIcon
-            size={14}
-            className={cx(
-              'ml-auto transition-transform duration-200 text-muted-foreground opacity-0 group-hover:opacity-100',
-              view !== 'collapsed' ? 'rotate-0' : '-rotate-90',
-            )}
-          />
-        )}
-      </button>
+      <div className="flex items-start gap-2.5">
+        <div className="mt-1 shrink-0">
+          {!isCompleted ? (
+            <span className="relative flex size-2">
+              <span className="absolute inline-flex size-full animate-[ping_1.5s_ease-in-out_infinite] rounded-full bg-foreground/25" />
+              <span className="relative inline-flex size-2 rounded-full bg-foreground" />
+            </span>
+          ) : (
+            <span className="inline-flex size-2 rounded-full bg-muted-foreground/30 group-hover/step:bg-foreground transition-colors duration-300" />
+          )}
+        </div>
 
-      {/* Content area */}
-      {hasContent && view !== 'collapsed' && (
-        <AnimatePresence initial={false}>
-          <motion.div
-            key="content"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
+        <div className="flex-1 min-w-0">
+          <button
+            type="button"
+            className="flex items-center gap-2 w-full text-left"
+            onClick={toggleFromTitle}
           >
-            <div className="mt-2 ml-5 pl-3 border-l border-border/50">
-              {step.type === 'reasoning' && step.reasoning && (
-                <ContentPreview
-                  isExpanded={view === 'expanded'}
-                  onExpand={() => setView('expanded')}
-                >
-                  <div className="text-zinc-600 dark:text-zinc-400 flex flex-col gap-4">
-                    <Markdown>{step.reasoning}</Markdown>
-                  </div>
-                </ContentPreview>
-              )}
+            {ToolIcon && (
+              <span className="text-muted-foreground/50 group-hover/step:text-muted-foreground transition-colors duration-300">
+                <ToolIcon size={13} />
+              </span>
+            )}
+            <span className="text-xs font-mono tracking-wide uppercase group-hover/step:text-foreground transition-colors duration-300">
+              {step.type === 'reasoning'
+                ? 'Reasoning'
+                : step.toolDisplayName || step.toolName}
+            </span>
+            {!isCompleted && step.type === 'tool' && (
+              <span className="text-[9px] font-mono tracking-widest px-1.5 py-px rounded bg-foreground/8 text-foreground/50">
+                RUNNING
+              </span>
+            )}
+          </button>
 
-              {step.type === 'tool' && step.toolInvocation && (
-                <ContentPreview
-                  isExpanded={view === 'expanded'}
-                  onExpand={() => setView('expanded')}
-                >
-                  <ToolContent
-                    toolInvocation={step.toolInvocation}
-                    isReadonly={isReadonly}
-                  />
-                </ContentPreview>
-              )}
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      )}
+          {hasContent && view !== 'collapsed' && (
+            <AnimatePresence initial={false}>
+              <motion.div
+                key="content"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="mt-2">
+                  {step.type === 'reasoning' && step.reasoning && (
+                    <ContentPreview
+                      isExpanded={view === 'expanded'}
+                      onExpand={() => setView('expanded')}
+                    >
+                      <div className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed">
+                        <Markdown>{step.reasoning}</Markdown>
+                      </div>
+                    </ContentPreview>
+                  )}
+
+                  {step.type === 'tool' && step.toolInvocation && (
+                    <ContentPreview
+                      isExpanded={view === 'expanded'}
+                      onExpand={() => setView('expanded')}
+                    >
+                      <ToolContent
+                        toolInvocation={step.toolInvocation}
+                        isReadonly={isReadonly}
+                      />
+                    </ContentPreview>
+                  )}
+                </div>
+              </motion.div>
+            </AnimatePresence>
+          )}
+        </div>
+      </div>
     </motion.div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Content preview — clips to ~3 lines with fade, click to expand
+// Content preview — 3-line clip with gradient
 // ---------------------------------------------------------------------------
 
 function ContentPreview({
@@ -259,12 +296,12 @@ function ContentPreview({
       className="relative text-left w-full"
       onClick={onExpand}
     >
-      <div className="max-h-[4.5em] overflow-hidden leading-[1.5em]">
+      <div className="max-h-[4.2em] overflow-hidden leading-[1.4em]">
         {children}
       </div>
       <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent pointer-events-none" />
-      <span className="text-xs text-muted-foreground mt-1 inline-block hover:underline">
-        Show more
+      <span className="text-[10px] font-mono text-muted-foreground/40 mt-1 inline-block hover:text-muted-foreground transition-colors duration-300">
+        show more
       </span>
     </button>
   );
@@ -295,24 +332,13 @@ function ToolContent({
       return <DocumentPreview isReadonly={isReadonly} result={result} />;
     }
     if (toolName === 'updateDocument') {
-      return (
-        <DocumentToolResult type="update" result={result} isReadonly={isReadonly} />
-      );
+      return <DocumentToolResult type="update" result={result} isReadonly={isReadonly} />;
     }
     if (toolName === 'requestSuggestions') {
-      return (
-        <DocumentToolResult type="request-suggestions" result={result} isReadonly={isReadonly} />
-      );
-    }
-    if (toolName === 'legalSearch') {
-      return (
-        <pre className="text-xs whitespace-pre-wrap max-w-full overflow-x-auto break-words text-muted-foreground">
-          {result.result}
-        </pre>
-      );
+      return <DocumentToolResult type="request-suggestions" result={result} isReadonly={isReadonly} />;
     }
     return (
-      <pre className="text-xs whitespace-pre-wrap max-w-full overflow-x-auto break-words text-muted-foreground">
+      <pre className="text-[11px] font-mono whitespace-pre-wrap max-w-full overflow-x-auto break-words text-muted-foreground leading-relaxed">
         {result.result}
       </pre>
     );
@@ -337,8 +363,8 @@ function ToolContent({
   }
   if (toolName === 'legalSearch') {
     return (
-      <span className="text-sm text-muted-foreground">
-        Searching for: {args.query}
+      <span className="text-[11px] font-mono text-muted-foreground/60">
+        {args.query}
       </span>
     );
   }

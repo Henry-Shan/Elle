@@ -13,6 +13,7 @@ import { Messages } from './messages';
 import type { VisibilityType } from './visibility-selector';
 import { useArtifactSelector } from '@/hooks/use-artifact';
 import { useGenerationStatus } from '@/hooks/use-generation-status';
+import { resetStreamIndex } from './data-stream-handler';
 import { toast } from 'sonner';
 
 export function Chat({
@@ -71,9 +72,10 @@ export function Chat({
   const handleSubmitWithReset = useCallback(
     (e?: { preventDefault?: () => void }, options?: Parameters<typeof handleSubmit>[1]) => {
       resetStatus();
+      resetStreamIndex(id);
       handleSubmit(e, options);
     },
-    [handleSubmit, resetStatus],
+    [handleSubmit, resetStatus, id],
   );
 
   return (

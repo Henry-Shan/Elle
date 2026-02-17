@@ -23,17 +23,28 @@ export type DataStreamDelta = {
   content: string | Suggestion;
 };
 
+// Module-level index tracking — survives React Strict Mode remounts
+const processedIndexMap = new Map<string, number>();
+
+export function resetStreamIndex(id: string) {
+  processedIndexMap.delete(id);
+}
+
 export function DataStreamHandler({ id }: { id: string }) {
   const { data: dataStream } = useChat({ id });
   const { artifact, setArtifact, setMetadata } = useArtifact();
   const { addStep } = useGenerationStatus();
-  const lastProcessedIndex = useRef(-1);
+  const artifactRef = useRef(artifact);
+  artifactRef.current = artifact;
 
   useEffect(() => {
     if (!dataStream?.length) return;
 
-    const newDeltas = dataStream.slice(lastProcessedIndex.current + 1);
-    lastProcessedIndex.current = dataStream.length - 1;
+    const lastIdx = processedIndexMap.get(id) ?? -1;
+    if (dataStream.length - 1 <= lastIdx) return;
+
+    const newDeltas = dataStream.slice(lastIdx + 1);
+    processedIndexMap.set(id, dataStream.length - 1);
 
     (newDeltas as DataStreamDelta[]).forEach((delta: DataStreamDelta) => {
       if (delta.type === 'status') {
@@ -42,7 +53,7 @@ export function DataStreamHandler({ id }: { id: string }) {
       }
 
       const artifactDefinition = artifactDefinitions.find(
-        (artifactDefinition) => artifactDefinition.kind === artifact.kind,
+        (def) => def.kind === artifactRef.current.kind,
       );
 
       if (artifactDefinition?.onStreamPart) {
@@ -98,7 +109,7 @@ export function DataStreamHandler({ id }: { id: string }) {
         }
       });
     });
-  }, [dataStream, setArtifact, setMetadata, artifact]);
+  }, [dataStream, id, setArtifact, setMetadata, addStep]);
 
   return null;
 }
