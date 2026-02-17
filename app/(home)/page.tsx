@@ -2,6 +2,7 @@ import Navbar from "@/components/navbar";
 import Footer from "@/components/footer";
 import HeroSection from "@/components/hero";
 import HomepageInput from "@/components/homepage-input";
+import MouseFlowBackground from "@/components/mouse-flow-background";
 import { SessionProvider } from "next-auth/react";
 
 export default function HomePage() {
@@ -21,6 +22,8 @@ export default function HomePage() {
             className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-20"
           />
         </div>
+        
+        <MouseFlowBackground />
 
         <div className="relative z-10 flex flex-col min-h-screen">
           <Navbar />
