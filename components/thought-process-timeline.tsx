@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ToolInvocation } from 'ai';
 import { buildTimelineSteps } from '@/lib/timeline';
-import { TimelineStepItem, StatusStepItem } from './timeline-step';
+import { TimelineStepItem, StatusPhaseItem } from './timeline-step';
 import { useGenerationStatus } from '@/hooks/use-generation-status';
 
 export function ThoughtProcessTimeline({
@@ -23,44 +23,32 @@ export function ThoughtProcessTimeline({
     [reasoning, toolInvocations, isLoading],
   );
 
-  const { steps: statusSteps, isActive } = useGenerationStatus();
+  const { phases } = useGenerationStatus();
 
-  if (steps.length === 0 && statusSteps.length === 0) return null;
+  if (steps.length === 0 && phases.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1">
       <AnimatePresence>
-        {/* Render status steps (RAG pipeline sub-steps) */}
-        {statusSteps.map((stepText, i) => {
-          const isLatest = i === statusSteps.length - 1;
-          const isDone = !isActive || !isLatest;
-          return (
-            <motion.div
-              key={`status-${i}-${stepText}`}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <StatusStepItem
-                label={stepText}
-                isDone={isDone}
-              />
-            </motion.div>
-          );
-        })}
+        {phases.map((phase) => (
+          <motion.div
+            key={phase.name}
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <StatusPhaseItem phase={phase} />
+          </motion.div>
+        ))}
 
-        {/* Render tool / reasoning steps */}
         {steps.map((step) => (
           <motion.div
             key={step.id}
-            initial={{ opacity: 0, y: 6 }}
+            initial={{ opacity: 0, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.15 }}
           >
-            <TimelineStepItem
-              step={step}
-              isReadonly={isReadonly}
-            />
+            <TimelineStepItem step={step} isReadonly={isReadonly} />
           </motion.div>
         ))}
       </AnimatePresence>

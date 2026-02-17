@@ -137,7 +137,6 @@ async function retrieveFromKB(
     }
   }
 
-  status(ds, `Retrieved ${docs.length} unique documents from knowledge base`);
   return docs;
 }
 
@@ -450,9 +449,10 @@ export const legalSearch = ({ dataStream }: { dataStream: DataStreamWriter }) =>
     }),
     execute: async ({ query, industry }) => {
       const ds = dataStream;
+      const s = (phase: string, step: string) => status(ds, `${phase}::${step}`);
 
-      // ── Step 1: Query Analysis & Routing ─────────────────────────────
-      status(ds, 'Analyzing query intent...');
+      // ── Phase 1: Query Analysis ──────────────────────────────────────
+      s('Query Analysis', 'Analyzing query intent');
 
       let chromaAvailable = false;
       let docCount = 0;
@@ -464,59 +464,54 @@ export const legalSearch = ({ dataStream }: { dataStream: DataStreamWriter }) =>
         console.error('ChromaDB connection error:', error);
       }
 
-      status(ds, 'Routing query to optimal sources...');
+      s('Query Analysis', 'Routing to optimal sources');
       const route = await routeQuery(query, industry, chromaAvailable, docCount);
 
-      // ── Step 2: Query Expansion ──────────────────────────────────────
-      status(ds, 'Expanding search queries for better recall...');
+      s('Query Analysis', 'Expanding queries for recall');
       const expandedQueries = await expandQuery(query, industry);
-      status(ds, `Generated ${expandedQueries.length} search queries`);
+      s('Query Analysis', `${expandedQueries.length} search queries generated`);
 
-      // ── Step 3: Retrieval ────────────────────────────────────────────
+      // ── Phase 2: Retrieval ───────────────────────────────────────────
       let kbDocs: RetrievedDoc[] = [];
 
       if (route.useKnowledgeBase) {
-        status(ds, `Embedding ${expandedQueries.length} queries...`);
-        status(ds, `Searching ${docCount.toLocaleString()} legal documents...`);
+        s('Retrieval', `Embedding ${expandedQueries.length} queries`);
+        s('Retrieval', `Searching ${docCount.toLocaleString()} documents`);
         try {
           kbDocs = await retrieveFromKB(expandedQueries, industry, ds);
+          s('Retrieval', `${kbDocs.length} unique documents retrieved`);
         } catch (error) {
           console.error('KB retrieval error:', error);
-          status(ds, 'Knowledge base retrieval failed');
+          s('Retrieval', 'Knowledge base unavailable');
         }
-      } else if (chromaAvailable && docCount === 0) {
-        status(ds, 'Knowledge base is empty — skipping to web research');
-      } else if (!chromaAvailable) {
-        status(ds, 'Knowledge base unavailable — skipping to web research');
+      } else {
+        s('Retrieval', chromaAvailable ? 'Knowledge base empty' : 'Knowledge base unavailable');
       }
 
-      // ── Step 4: CRAG (Corrective RAG) ───────────────────────────────
-      status(ds, 'Evaluating document relevance (CRAG)...');
+      // ── Phase 3: Evaluation (CRAG + Web) ─────────────────────────────
+      s('Evaluation', 'Grading document relevance (CRAG)');
       const crag = await correctiveRAG(query, kbDocs);
       const keptCount = crag.relevantDocs.length;
       const droppedCount = kbDocs.length - keptCount;
 
       if (kbDocs.length > 0) {
-        status(ds, `CRAG: ${keptCount} relevant, ${droppedCount} filtered out`);
+        s('Evaluation', `${keptCount} relevant, ${droppedCount} filtered`);
       }
 
       const needsWeb = route.useWebResearch || crag.needsWebSearch;
-
-      // ── Step 5: Web Research (supplementary / fallback) ──────────────
       let webDocs: RetrievedDoc[] = [];
 
       if (needsWeb) {
-        status(ds, 'Researching legal sources online...');
+        s('Evaluation', 'Researching supplementary sources online');
         try {
           webDocs = await webResearch(query, industry);
-          status(ds, `Found ${webDocs.length} online legal sources`);
+          s('Evaluation', `${webDocs.length} online sources found`);
         } catch (error) {
           console.error('Web research error:', error);
-          status(ds, 'Online research unavailable');
+          s('Evaluation', 'Online research unavailable');
         }
       }
 
-      // Merge all documents
       const allDocs = [...crag.relevantDocs, ...webDocs];
 
       if (allDocs.length === 0) {
@@ -529,38 +524,30 @@ export const legalSearch = ({ dataStream }: { dataStream: DataStreamWriter }) =>
         };
       }
 
-      // ── Step 6: Reranking ────────────────────────────────────────────
-      status(ds, `Reranking ${allDocs.length} documents by relevance...`);
+      // ── Phase 4: Refinement ──────────────────────────────────────────
+      s('Refinement', `Reranking ${allDocs.length} documents`);
       const reranked = await rerankDocuments(query, allDocs);
-
-      // Keep top documents to avoid context bloat
       const topDocs = reranked.slice(0, 8);
-      status(ds, `Top ${topDocs.length} documents selected`);
+      s('Refinement', `Top ${topDocs.length} selected`);
 
-      // ── Step 7: Context Compression ──────────────────────────────────
-      status(ds, 'Compressing context — extracting key passages...');
+      s('Refinement', 'Compressing context');
       const compressed = await compressContext(query, topDocs);
 
-      // ── Step 8: Self-RAG Generation ──────────────────────────────────
-      status(ds, 'Generating legal analysis from sources (Self-RAG)...');
+      // ── Phase 5: Analysis ────────────────────────────────────────────
+      s('Analysis', 'Generating legal analysis (Self-RAG)');
       const initialAnswer = await selfRAGGenerate(query, compressed);
 
-      // ── Step 9: Self-RAG Reflection ──────────────────────────────────
-      status(ds, 'Verifying answer groundedness (Self-RAG reflection)...');
+      s('Analysis', 'Verifying groundedness');
       const reflection = await selfRAGReflect(query, initialAnswer, compressed);
 
-      if (reflection.isGrounded) {
-        status(ds, 'Answer verified — all claims grounded in sources');
-      } else {
-        status(ds, `Found ${reflection.hallucinations.length} potential issues — correcting...`);
+      if (!reflection.isGrounded) {
+        s('Analysis', 'Correcting ungrounded claims');
       }
 
-      // ── Step 10: Citation Grounding ──────────────────────────────────
-      status(ds, 'Grounding citations to source documents...');
+      s('Analysis', 'Grounding citations');
       const finalAnswer = await groundCitations(initialAnswer, compressed, reflection);
 
-      // ── Final: Compile output ────────────────────────────────────────
-      status(ds, 'Compiling final analysis...');
+      s('Analysis', 'Compiling final output');
 
       const sourceList = formatSourceList(compressed);
 
@@ -573,7 +560,7 @@ export const legalSearch = ({ dataStream }: { dataStream: DataStreamWriter }) =>
         '',
         sourceList,
         '',
-        `=== Pipeline Summary ===`,
+        '=== Pipeline Summary ===',
         `Queries expanded: ${expandedQueries.length}`,
         `Documents retrieved: ${kbDocs.length} (knowledge base) + ${webDocs.length} (web research)`,
         `CRAG filtered: ${droppedCount} irrelevant documents removed`,
