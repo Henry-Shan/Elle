@@ -8,6 +8,7 @@ import {
   TimelineStepItem,
   StatusPhaseItem,
   PipelineSummaryBlock,
+  LegalSearchGroupItem,
 } from './timeline-step';
 import { useGenerationStatus } from '@/hooks/use-generation-status';
 
@@ -29,9 +30,18 @@ export function ThoughtProcessTimeline({
 
   const { phases, isActive: pipelineActive } = useGenerationStatus();
 
+  // Split steps: legalSearch grouped, others individual
+  const legalSearchSteps = useMemo(
+    () => steps.filter((s) => s.toolName === 'legalSearch'),
+    [steps],
+  );
+  const otherSteps = useMemo(
+    () => steps.filter((s) => s.toolName !== 'legalSearch'),
+    [steps],
+  );
+
   // -----------------------------------------------------------------------
   // Staggered reveal — show one phase at a time, 600ms apart
-  // Uses a ref-based timer so rapid phases.length changes don't reset it.
   // -----------------------------------------------------------------------
   const [revealedCount, setRevealedCount] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -39,7 +49,7 @@ export function ThoughtProcessTimeline({
   const scheduleNextReveal = useCallback(
     (current: number, target: number) => {
       if (current >= target) return;
-      if (timerRef.current) return; // already scheduled
+      if (timerRef.current) return;
 
       const delay = current === 0 ? 0 : 600;
       timerRef.current = setTimeout(() => {
@@ -50,7 +60,6 @@ export function ThoughtProcessTimeline({
     [],
   );
 
-  // Reset when phases clear (new message)
   useEffect(() => {
     if (phases.length === 0) {
       setRevealedCount(0);
@@ -61,12 +70,10 @@ export function ThoughtProcessTimeline({
     }
   }, [phases.length]);
 
-  // Drive the reveal chain
   useEffect(() => {
     scheduleNextReveal(revealedCount, phases.length);
   }, [revealedCount, phases.length, scheduleNextReveal]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -76,7 +83,6 @@ export function ThoughtProcessTimeline({
     };
   }, []);
 
-  // Build visible phases — last revealed stays "active" if more are queued
   const visiblePhases = useMemo(() => {
     return phases.slice(0, revealedCount).map((phase, i) => {
       if (i === revealedCount - 1 && revealedCount < phases.length) {
@@ -89,6 +95,26 @@ export function ThoughtProcessTimeline({
   const allRevealed = revealedCount >= phases.length;
   const effectivePipelineActive = pipelineActive || !allRevealed;
 
+  // Delay showing legal search block after phases finish
+  const [showLegalSearch, setShowLegalSearch] = useState(false);
+  const hasLegalSearch = legalSearchSteps.length > 0;
+  const canShowLegalSearch = hasLegalSearch && phases.length > 0 && allRevealed && !pipelineActive;
+
+  useEffect(() => {
+    if (canShowLegalSearch && !showLegalSearch) {
+      const timer = setTimeout(() => setShowLegalSearch(true), 400);
+      return () => clearTimeout(timer);
+    }
+    if (!canShowLegalSearch && !hasLegalSearch) {
+      setShowLegalSearch(false);
+    }
+  }, [canShowLegalSearch, showLegalSearch, hasLegalSearch]);
+
+  // Reset when phases clear
+  useEffect(() => {
+    if (phases.length === 0) setShowLegalSearch(false);
+  }, [phases.length]);
+
   if (steps.length === 0 && phases.length === 0) return null;
 
   const pipelineDone = visiblePhases.length > 0 && !effectivePipelineActive;
@@ -96,7 +122,7 @@ export function ThoughtProcessTimeline({
 
   return (
     <div className="flex flex-col">
-      {/* While generating response: single collapsed summary (includes tool steps) */}
+      {/* While generating response: single collapsed summary */}
       {showSummary && (
         <motion.div
           key="pipeline-summary"
@@ -120,31 +146,42 @@ export function ThoughtProcessTimeline({
             <StatusPhaseItem
               phase={phase}
               index={i + 1}
-              isLast={i === visiblePhases.length - 1}
+              isLast={i === visiblePhases.length - 1 && !showLegalSearch}
               pipelineActive={effectivePipelineActive}
             />
           </motion.div>
         ))}
 
-      {/* Tool invocation steps — legalSearch waits for all phases, others show normally */}
-      {!showSummary && (() => {
-        const hasLegalSearch = steps.some((s) => s.toolName === 'legalSearch');
-        const canShowToolSteps = !hasLegalSearch || (phases.length > 0 && allRevealed);
-        return canShowToolSteps ? (
-          <AnimatePresence>
-            {steps.map((step) => (
-              <motion.div
-                key={step.id}
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.15 }}
-              >
-                <TimelineStepItem step={step} isReadonly={isReadonly} />
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        ) : null;
-      })()}
+      {/* Grouped Legal Search block — appears after all phases with delay */}
+      {!showSummary && showLegalSearch && (
+        <motion.div
+          key="legal-search-group"
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          transition={{ duration: 0.25 }}
+        >
+          <LegalSearchGroupItem
+            steps={legalSearchSteps}
+            isReadonly={isReadonly}
+          />
+        </motion.div>
+      )}
+
+      {/* Other tool steps (createDocument, etc.) */}
+      {!showSummary && (
+        <AnimatePresence>
+          {otherSteps.map((step) => (
+            <motion.div
+              key={step.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <TimelineStepItem step={step} isReadonly={isReadonly} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      )}
 
       {/* Generating response — at the very bottom */}
       {showSummary && (

@@ -360,6 +360,121 @@ export function TimelineStepItem({
 }
 
 // ---------------------------------------------------------------------------
+// Grouped Legal Search block — multiple legalSearch invocations in one item
+// ---------------------------------------------------------------------------
+
+export function LegalSearchGroupItem({
+  steps,
+  isReadonly,
+}: {
+  steps: TimelineStep[];
+  isReadonly: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const allCompleted = steps.every((s) => s.status === 'completed');
+  const count = steps.length;
+
+  return (
+    <motion.div
+      className="group/legal relative cursor-default"
+      animate={{ opacity: allCompleted ? 0.8 : 1 }}
+      whileHover={{ opacity: 1 }}
+      transition={{ duration: 0.3 }}
+    >
+      <div className="flex items-start gap-2.5 py-1.5">
+        {/* Dot indicator */}
+        <div className="mt-1 shrink-0">
+          {!allCompleted ? (
+            <motion.span
+              className="relative flex size-2"
+              animate={{ opacity: [0.15, 1, 0.15], scale: [0.8, 1.3, 0.8] }}
+              transition={{ duration: 1.2, repeat: Number.POSITIVE_INFINITY, ease: 'easeInOut' }}
+            >
+              <span className="absolute inline-flex size-full rounded-full bg-foreground/40 animate-[ping_1s_ease-in-out_infinite]" />
+              <span className="relative inline-flex size-2 rounded-full bg-foreground" />
+            </motion.span>
+          ) : (
+            <span className="inline-flex size-2 rounded-full bg-muted-foreground/40 group-hover/legal:bg-foreground transition-colors duration-300" />
+          )}
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0">
+          <button
+            type="button"
+            className="flex items-center gap-2 w-full text-left"
+            onClick={() => setExpanded((e) => !e)}
+          >
+            <span className="text-muted-foreground/60 group-hover/legal:text-muted-foreground transition-colors duration-300">
+              <FileIcon size={13} />
+            </span>
+            <span className="text-xs font-mono tracking-wide uppercase group-hover/legal:text-foreground transition-colors duration-300">
+              Legal Search
+            </span>
+            <span className="text-[10px] font-mono text-muted-foreground/40 group-hover/legal:text-muted-foreground/70 transition-colors duration-300">
+              {count} {count === 1 ? 'query' : 'queries'}
+            </span>
+            {!allCompleted && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-[9px] font-mono tracking-widest px-1.5 py-px rounded bg-foreground/8 text-foreground/50"
+              >
+                RUNNING
+              </motion.span>
+            )}
+          </button>
+
+          {/* Expanded: show each query */}
+          <AnimatePresence initial={false}>
+            {expanded && (
+              <motion.div
+                key="legal-queries"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                style={{ overflow: 'hidden' }}
+              >
+                <div className="mt-1.5 flex flex-col gap-1">
+                  {steps.map((step, i) => {
+                    const query = step.toolInvocation?.args?.query;
+                    const isComplete = step.status === 'completed';
+                    return (
+                      <motion.span
+                        key={step.id}
+                        className={cx(
+                          'text-[11px] font-mono leading-relaxed block transition-colors duration-300',
+                          isComplete
+                            ? 'text-muted-foreground/55 group-hover/legal:text-muted-foreground/90'
+                            : 'text-foreground/80 group-hover/legal:text-foreground',
+                        )}
+                        initial={{ opacity: 0, x: -4 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.2, delay: i * 0.05 }}
+                      >
+                        {query || `Query ${i + 1}`}
+                      </motion.span>
+                    );
+                  })}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Collapsed: show first query as summary */}
+          {!expanded && steps.length > 0 && (
+            <span className="text-[11px] font-mono text-muted-foreground/45 group-hover/legal:text-muted-foreground/80 block mt-0.5 truncate transition-colors duration-300">
+              {steps[0].toolInvocation?.args?.query || 'Searching...'}
+            </span>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Content preview — 3-line clip with gradient
 // ---------------------------------------------------------------------------
 

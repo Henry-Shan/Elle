@@ -10,6 +10,67 @@ import { getMostRecentUserMessage } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { NextResponse } from "next/server";
 import ExecuteChatWorkflow from "@/lib/workflows/execute-chat";
+import { PDFParse } from "pdf-parse";
+
+async function extractPdfText(url: string): Promise<string> {
+  const response = await fetch(url);
+  const buffer = await response.arrayBuffer();
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  const result = await parser.getText();
+  await parser.destroy();
+  return result.text;
+}
+
+async function processAttachments(messages: Array<Message>): Promise<Array<Message>> {
+  const processed: Array<Message> = [];
+
+  for (const message of messages) {
+    const attachments = message.experimental_attachments;
+    if (!attachments || attachments.length === 0) {
+      processed.push(message);
+      continue;
+    }
+
+    const pdfTexts: string[] = [];
+    const nonPdfAttachments = [];
+
+    for (const attachment of attachments) {
+      if (attachment.contentType === "application/pdf" && attachment.url) {
+        try {
+          const text = await extractPdfText(attachment.url);
+          pdfTexts.push(
+            `[Attached PDF: ${attachment.name || "document.pdf"}]\n${text}`
+          );
+        } catch (e) {
+          console.error("Failed to extract PDF text:", e);
+          pdfTexts.push(
+            `[Attached PDF: ${attachment.name || "document.pdf"}] (Failed to extract text)`
+          );
+        }
+      } else {
+        nonPdfAttachments.push(attachment);
+      }
+    }
+
+    if (pdfTexts.length > 0) {
+      const pdfContent = pdfTexts.join("\n\n");
+      const originalContent =
+        typeof message.content === "string" ? message.content : "";
+      processed.push({
+        ...message,
+        content: originalContent
+          ? `${originalContent}\n\n${pdfContent}`
+          : pdfContent,
+        experimental_attachments:
+          nonPdfAttachments.length > 0 ? nonPdfAttachments : undefined,
+      });
+    } else {
+      processed.push(message);
+    }
+  }
+
+  return processed;
+}
 
 export const maxDuration = 60;
 
@@ -55,11 +116,13 @@ export async function POST(request: Request) {
       messages: [{ ...userMessage, createdAt: new Date(), chatId: id }],
     });
 
+    const processedMessages = await processAttachments(messages);
+
     return createDataStreamResponse({
       execute: async (dataStream) => {
         const result = await ExecuteChatWorkflow.run({
           id,
-          messages,
+          messages: processedMessages,
           selectedChatModel,
           dataStream,
           session,

@@ -57,7 +57,7 @@ You have access to a \`legalSearch\` tool that searches a comprehensive legal kn
 - \`createDocument\` only accepts two parameters: \`title\` (string) and \`kind\` (use "text"). Do NOT pass any other fields like content — the document content is generated automatically from the conversation context.
 - Give it a descriptive title based on the user's question (e.g., "HIPAA Breach Notification Requirements", "GDPR Compliance Guide for SaaS")
 - Example call: \`createDocument({ title: "HIPAA Compliance Overview", kind: "text" })\`
-- In the chat, provide a brief summary and let the user know the full analysis is in the document
+- **IMPORTANT: Do NOT repeat the full analysis in the chat message.** The document already contains the complete response. In the chat, only write a brief 1-2 sentence summary telling the user what was found and that the full details are in the document. Never duplicate the document content in the chat text.
 `;
 
 export const regularPrompt = (prompt: string, selectedChatModel: string) =>
