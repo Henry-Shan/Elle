@@ -23,7 +23,7 @@ import { calculator } from '../ai/tools/calculator';
 import { webSearch } from '../ai/tools/web-search';
 import { getDate } from '../ai/tools/get-date';
 import { mcp } from '../ai/tools/mcp';
-// import tool from tools/ folder 
+import { legalSearch } from '../ai/tools/legal-search';
 
 interface ExecuteChatProps {
   session: Session,
@@ -56,7 +56,7 @@ const ExecuteChat = gensx.Component<ExecuteChatProps, any>(
                     'webSearch',
                     'getDate',
                     'mcp',
-                    // add tool name here
+                    'legalSearch',
                   ]
             }
             experimental_generateMessageId={generateUUID}
@@ -72,7 +72,7 @@ const ExecuteChat = gensx.Component<ExecuteChatProps, any>(
               webSearch,
               getDate,
               mcp,
-              // add tool from tools/ here
+              legalSearch,
             }}
             onFinish={async ({ response, reasoning }) => {
               if (session.user?.id) {

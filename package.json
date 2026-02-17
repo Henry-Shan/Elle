@@ -16,6 +16,7 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
+    "db:ingest": "npx tsx scripts/ingest-all.ts",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test --workers=4"
   },
   "dependencies": {
@@ -52,6 +53,7 @@
     "@vercel/postgres": "^0.10.0",
     "ai": "4.1.55",
     "bcrypt-ts": "^5.0.2",
+    "chromadb": "^3.3.0",
     "class-variance-authority": "^0.7.0",
     "classnames": "^2.5.1",
     "clsx": "^2.1.1",
