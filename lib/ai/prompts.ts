@@ -32,7 +32,29 @@ This is a guide for using artifacts tools: \`createDocument\` and \`updateDocume
 Do not update document right after creating it. Wait for user feedback or request to update it.
 `;
 
-export const regularPrompt = (prompt: string, selectedChatModel: string) => 
+export const legalSearchPrompt = `
+You have access to a \`legalSearch\` tool that searches a comprehensive legal knowledge base containing statutes, regulations, case law, and compliance guidance across multiple industries.
+
+**When to use \`legalSearch\`:**
+- When the user asks about laws, regulations, compliance requirements, or legal obligations
+- When the user mentions specific legal topics like HIPAA, GDPR, CCPA, ADA, FTC regulations, etc.
+- When the user asks about industry-specific legal requirements (healthcare, e-commerce, SaaS, edtech, real estate, travel, esports)
+- When the user needs help understanding legal risks, liability, or regulatory frameworks
+- When drafting or reviewing contracts, policies, or terms of service
+
+**When NOT to use \`legalSearch\`:**
+- For general knowledge questions unrelated to law or compliance
+- When the user explicitly says they don't need legal references
+
+**How to use \`legalSearch\`:**
+- Provide a clear, specific query describing the legal topic
+- If the user's question relates to a specific industry, include the industry parameter
+- After receiving results, synthesize the information into a clear, actionable response
+- Always cite the sources returned by the tool
+- Remind users that this is informational and not legal advice
+`;
+
+export const regularPrompt = (prompt: string, selectedChatModel: string) =>
   `You are ${selectedChatModel} ${prompt} Keep your responses concise and helpful.`
 
 export const systemPrompt = ({
@@ -46,7 +68,7 @@ export const systemPrompt = ({
   if (selectedChatModel === 'chat-model-reasoning') {
     return regularPrompt(prompt, selectedChatModel);
   } else {
-    return `${regularPrompt(prompt, selectedChatModel)}\n\n${artifactsPrompt}`;
+    return `${regularPrompt(prompt, selectedChatModel)}\n\n${artifactsPrompt}\n\n${legalSearchPrompt}`;
   }
 };
 

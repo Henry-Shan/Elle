@@ -2,7 +2,7 @@
 
 import type { ChatRequestOptions, Message } from 'ai';
 import { AnimatePresence, motion } from 'framer-motion';
-import { memo, useState, useEffect, useRef } from 'react';
+import { memo, useState } from 'react';
 import type { Vote } from '@/lib/db/schema';
 import { PencilEditIcon, SparklesIcon, CheckCircleFillIcon, LoaderIcon } from './icons';
 import { Markdown } from './markdown';
@@ -14,69 +14,22 @@ import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { MessageEditor } from './message-editor';
 import { ThoughtProcessTimeline } from './thought-process-timeline';
+import { useGenerationStatus } from '@/hooks/use-generation-status';
 
-const ghostPhrases = [
-  'Searching knowledge base',
-  'Analyzing legal precedents',
-  'Cross-referencing statutes',
-  'Reviewing compliance guidelines',
-  'Parsing regulatory frameworks',
-  'Consulting case law databases',
-  'Evaluating risk factors',
-  'Scanning contract clauses',
-  'Retrieving relevant documents',
-  'Mapping jurisdictional requirements',
-  'Assessing liability exposure',
-  'Reviewing industry standards',
-  'Checking regulatory updates',
-  'Synthesizing legal opinions',
-  'Verifying statutory references',
-  'Examining dispute history',
-  'Drafting initial analysis',
-  'Correlating compliance data',
-  'Reviewing enforcement actions',
-  'Formulating recommendations',
-];
+const GhostTaskBlock = () => {
+  const { steps, isActive } = useGenerationStatus();
 
-const GhostTaskBlock = ({ isLoading }: { isLoading: boolean }) => {
-  const [tasks, setTasks] = useState<string[]>([]);
-  const availableRef = useRef<string[]>([...ghostPhrases]);
-  const [finished, setFinished] = useState(false);
-
-  useEffect(() => {
-    if (!isLoading && tasks.length > 0) {
-      setFinished(true);
-      return;
-    }
-    if (!isLoading) return;
-
-    const pickNext = () => {
-      if (availableRef.current.length === 0) {
-        availableRef.current = [...ghostPhrases];
-      }
-      const pool = availableRef.current;
-      const idx = Math.floor(Math.random() * pool.length);
-      const picked = pool[idx];
-      pool.splice(idx, 1);
-      setTasks((t) => [...t, picked]);
-    };
-
-    pickNext();
-    const id = setInterval(pickNext, 2500);
-    return () => clearInterval(id);
-  }, [isLoading]);
-
-  if (tasks.length === 0) return null;
+  if (steps.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-1">
       <AnimatePresence>
-        {tasks.map((task, i) => {
-          const isLatest = i === tasks.length - 1;
-          const isDone = finished || !isLatest;
+        {steps.map((step, i) => {
+          const isLatest = i === steps.length - 1;
+          const isDone = !isActive || !isLatest;
           return (
             <motion.div
-              key={`ghost-${task}`}
+              key={`status-${i}-${step}`}
               className="flex items-center gap-2"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -97,7 +50,7 @@ const GhostTaskBlock = ({ isLoading }: { isLoading: boolean }) => {
                   'text-foreground font-medium': !isDone,
                 })}
               >
-                {task}{!isDone ? '...' : ''}
+                {step}{!isDone ? '...' : ''}
               </span>
             </motion.div>
           );
@@ -160,7 +113,7 @@ const PurePreviewMessage = ({
 
           <div className="flex flex-col gap-4 w-full">
             {message.role === 'assistant' && (
-              <GhostTaskBlock isLoading={isLoading} />
+              <GhostTaskBlock />
             )}
 
             {message.experimental_attachments && (

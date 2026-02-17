@@ -2,7 +2,7 @@
 
 import type { Attachment, Message } from 'ai';
 import { useChat } from '@ai-sdk/react';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { ChatHeader } from '@/components/chat-header';
 import type { Vote } from '@/lib/db/schema';
@@ -12,6 +12,7 @@ import { MultimodalInput } from './multimodal-input';
 import { Messages } from './messages';
 import type { VisibilityType } from './visibility-selector';
 import { useArtifactSelector } from '@/hooks/use-artifact';
+import { useGenerationStatus } from '@/hooks/use-generation-status';
 import { toast } from 'sonner';
 
 export function Chat({
@@ -28,6 +29,7 @@ export function Chat({
   isReadonly: boolean;
 }) {
   const { mutate } = useSWRConfig();
+  const { reset: resetStatus } = useGenerationStatus();
 
   const {
     messages,
@@ -48,11 +50,13 @@ export function Chat({
     generateId: generateUUID,
     onFinish: () => {
       mutate('/api/history');
+      resetStatus();
     },
     onError: (error) => {
       console.error('Chat error:', error);
       toast.error(`An error occurred: ${error.message}`);
       toast.error('An error occured, please try again!');
+      resetStatus();
     },
   });
 
@@ -63,6 +67,14 @@ export function Chat({
 
   const [attachments, setAttachments] = useState<Array<Attachment>>([]);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
+
+  const handleSubmitWithReset = useCallback(
+    (e?: { preventDefault?: () => void }, options?: Parameters<typeof handleSubmit>[1]) => {
+      resetStatus();
+      handleSubmit(e, options);
+    },
+    [handleSubmit, resetStatus],
+  );
 
   return (
     <>
@@ -94,7 +106,7 @@ export function Chat({
                   chatId={id}
                   input={input}
                   setInput={setInput}
-                  handleSubmit={handleSubmit}
+                  handleSubmit={handleSubmitWithReset}
                   isLoading={isLoading}
                   stop={stop}
                   attachments={attachments}
@@ -120,7 +132,7 @@ export function Chat({
         chatId={id}
         input={input}
         setInput={setInput}
-        handleSubmit={handleSubmit}
+        handleSubmit={handleSubmitWithReset}
         isLoading={isLoading}
         stop={stop}
         attachments={attachments}

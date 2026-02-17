@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 import { artifactDefinitions, type ArtifactKind } from './artifact';
 import type { Suggestion } from '@/lib/db/schema';
 import { initialArtifactData, useArtifact } from '@/hooks/use-artifact';
+import { useGenerationStatus } from '@/hooks/use-generation-status';
 
 export type DataStreamDelta = {
   type:
@@ -17,13 +18,15 @@ export type DataStreamDelta = {
     | 'suggestion'
     | 'clear'
     | 'finish'
-    | 'kind';
+    | 'kind'
+    | 'status';
   content: string | Suggestion;
 };
 
 export function DataStreamHandler({ id }: { id: string }) {
   const { data: dataStream } = useChat({ id });
   const { artifact, setArtifact, setMetadata } = useArtifact();
+  const { addStep } = useGenerationStatus();
   const lastProcessedIndex = useRef(-1);
 
   useEffect(() => {
@@ -33,6 +36,11 @@ export function DataStreamHandler({ id }: { id: string }) {
     lastProcessedIndex.current = dataStream.length - 1;
 
     (newDeltas as DataStreamDelta[]).forEach((delta: DataStreamDelta) => {
+      if (delta.type === 'status') {
+        addStep(delta.content as string);
+        return;
+      }
+
       const artifactDefinition = artifactDefinitions.find(
         (artifactDefinition) => artifactDefinition.kind === artifact.kind,
       );

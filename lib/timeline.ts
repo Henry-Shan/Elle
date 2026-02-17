@@ -21,6 +21,7 @@ const toolDisplayNames: Record<string, string> = {
   webSearch: 'Web Search',
   calculator: 'Calculator',
   getDate: 'Get Date',
+  legalSearch: 'Legal Search',
 };
 
 export function getToolDisplayName(toolName: string): string {

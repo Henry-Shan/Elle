@@ -24,6 +24,7 @@ const toolIconMap: Record<string, React.ComponentType<{ size?: number }>> = {
   createDocument: FileIcon,
   updateDocument: PencilEditIcon,
   requestSuggestions: MessageIcon,
+  legalSearch: FileIcon,
 };
 
 function getToolIcon(toolName?: string) {
@@ -177,6 +178,15 @@ function ToolContent({
         />
       );
     }
+    if (toolName === 'legalSearch') {
+      return (
+        <div className="pl-4 border-l border-border">
+          <pre className="text-xs whitespace-pre-wrap max-w-full overflow-x-auto break-words text-muted-foreground">
+            {result.result}
+          </pre>
+        </div>
+      );
+    }
     return (
       <div>
         <div className="text-sm font-medium mb-1">Tool: {toolName}</div>
@@ -210,6 +220,13 @@ function ToolContent({
         args={args}
         isReadonly={isReadonly}
       />
+    );
+  }
+  if (toolName === 'legalSearch') {
+    return (
+      <div className="pl-4 border-l border-border text-sm text-muted-foreground">
+        Searching for: {args.query}
+      </div>
     );
   }
 
