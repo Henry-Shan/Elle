@@ -202,7 +202,7 @@ export default function HomepageInput() {
             adjustHeight();
           }}
           className="min-h-[14px] max-h-[75dvh] resize-none rounded-2xl pb-10 pr-16 pl-6 pt-3 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-          rows={3}
+          rows={2}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();

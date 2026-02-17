@@ -1,49 +1,44 @@
 "use client";
+
 import { ArrowRight } from "lucide-react";
-import { useState } from "react";
 import Link from "next/link";
 
 export default function HeroSection() {
-  const [isHovered, setIsHovered] = useState(false);
-
   return (
-    <section className="pt-14 px-6">
-      <div className="max-w-4xl mx-auto text-center">
-        {/* Eyebrow */}
-        <div className="inline-flex items-center justify-center gap-1.5 mb-3 px-1 py-0.5 rounded-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600">
-          <div className="bg-[#FC7B11] text-white text-xs font-bold px-3 py-1.5 rounded-full">
-            New
-          </div>
-          <Link
-            href="/login"
-            className="flex items-center gap-1 group"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-          >
-            <span className="text-sm font-base text-gray-900 dark:text-gray-100 tracking-wider">
-              Get Early Access Now
-            </span>
+    <section className="relative pt-20 pb-8 px-6 overflow-hidden">
+      {/* Subtle radial glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#FC7B11]/[0.03] rounded-full blur-3xl pointer-events-none" />
 
-            <div className="transition-all duration-700 group-hover:translate-x-0.5">
-              {isHovered ? (
-                <ArrowRight className="size-4 text-gray-500 dark:text-gray-400 transition-all duration-300" />
-              ) : (
-                <ArrowRight className="size-4 text-gray-300 dark:text-gray-500 transition-all duration-300" />
-              )}
-            </div>
-          </Link>
-        </div>
-
-        <h1
-          className="text-5xl md:text-[5.5rem] font-bold text-gray-900 dark:text-white mb-5"
-          style={{ letterSpacing: "-0.03em" }}
+      <div className="relative max-w-3xl mx-auto text-center">
+        {/* Eyebrow pill */}
+        <Link
+          href="/login"
+          className="group inline-flex items-center gap-2 mb-6 px-4 py-1.5 rounded-full border border-gray-700/60 bg-white/[0.04] backdrop-blur-sm hover:border-[#FC7B11]/40 transition-all duration-300"
         >
-          Startup
+          <span className="size-1.5 rounded-full bg-[#FC7B11] animate-pulse" />
+          <span className="text-[13px] font-medium text-gray-400 tracking-wide">
+            Early Access Available
+          </span>
+          <ArrowRight className="size-3.5 text-gray-500 group-hover:translate-x-0.5 group-hover:text-[#FC7B11] transition-all duration-300" />
+        </Link>
+
+        {/* Heading */}
+        <h1
+          className="text-5xl sm:text-6xl md:text-7xl font-semibold text-white leading-[1.08] mb-4"
+          style={{ letterSpacing: "-0.035em" }}
+        >
+          Legal AI for
           <br />
-          Legal AI
+          <span className="bg-gradient-to-r from-[#FC7B11] to-[#f59e0b] bg-clip-text text-transparent">
+            Modern Startups
+          </span>
         </h1>
-        <p className="text-xl text-gray-700 dark:text-gray-300 mb-10 max-w-3xl mx-auto">
-          Get instant AI legal guidance for startups
+
+        {/* Subtitle */}
+        <p className="text-lg text-gray-400 mb-0 max-w-md mx-auto leading-relaxed">
+          Instant, AI-powered legal guidance —
+          <br className="hidden sm:block" />
+          so you can build, not worry.
         </p>
       </div>
     </section>

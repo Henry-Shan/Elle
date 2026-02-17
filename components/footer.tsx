@@ -1,5 +1,5 @@
-import { FaInstagram, FaTwitter } from "react-icons/fa";
 import Link from "next/link";
+
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -47,7 +47,7 @@ const Footer = () => {
 
   return (
     <footer className="bg-gray-900 dark:bg-gray-950 text-gray-300 dark:text-gray-400">
-      <div className="container mx-auto px-4 py-16">
+      <div className="container mx-auto px-4 py-10">
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-7 gap-10">
           {/* Brand Column */}
 
@@ -96,7 +96,7 @@ const Footer = () => {
         </div>
 
         {/* Divider */}
-        <div className="border-t border-gray-800 dark:border-gray-700 my-12" />
+        <div className="border-t border-gray-800 my-8" />
 
         {/* Copyright */}
         <div className="flex flex-col md:flex-row justify-between items-center">
