@@ -7,38 +7,30 @@ import { SessionProvider } from "next-auth/react";
 export default function HomePage() {
   return (
     <SessionProvider>
-      <div className="relative min-h-screen bg-gray-80 dark:bg-black">
-        <div className="relative z-10">
-          <Navbar />
-          <main className="flex-1">
-            <HeroSection />
-          </main>
-          <HomepageInput />
-          <Footer />
-        </div>
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 -top-40 -z-0 transform-gpu overflow-hidden blur-3xl sm:-top-80"
-        >
-          <div
-            style={{
-              clipPath:
-                'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)',
-            }}
-            className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-30 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem] dark:opacity-20"
+      <div className="relative min-h-screen bg-[#020202] text-gray-100 overflow-hidden selection:bg-[#FC7B11]/30">
+        
+        {/* Animated Background Layers */}
+        <div className="fixed inset-0 z-0 pointer-events-none">
+          {/* Base gradient mesh */}
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-900/10 blur-[120px] animate-aurora mix-blend-screen" />
+          <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-900/10 blur-[120px] animate-aurora mix-blend-screen animation-delay-2000" />
+          <div className="absolute bottom-[-10%] left-[20%] w-[50%] h-[50%] rounded-full bg-purple-900/10 blur-[120px] animate-aurora mix-blend-screen animation-delay-4000" />
+          
+          {/* Subtle Grid Pattern */}
+          <div 
+            className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-20"
           />
         </div>
-        <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-[calc(100%-13rem)] -z-0 transform-gpu overflow-hidden blur-3xl sm:top-[calc(100%-30rem)]"
-        >
-            <div
-            style={{
-                clipPath:
-                'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)',
-            }}
-            className="relative left-[calc(50%+3rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 bg-gradient-to-tr from-[#80ff89] to-[#9089fc] opacity-20 sm:left-[calc(50%+36rem)] sm:w-[72.1875rem] dark:opacity-10"
-            />
+
+        <div className="relative z-10 flex flex-col min-h-screen">
+          <Navbar />
+          
+          <main className="flex-1 flex flex-col items-center justify-center gap-10 py-12">
+            <HeroSection />
+            <HomepageInput />
+          </main>
+          
+          <Footer />
         </div>
       </div>
     </SessionProvider>

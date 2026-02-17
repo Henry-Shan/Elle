@@ -46,7 +46,7 @@ const Footer = () => {
   ];
 
   return (
-    <footer className="bg-gray-900 dark:bg-gray-950 text-gray-300 dark:text-gray-400">
+    <footer className="bg-transparent text-gray-300 dark:text-gray-400">
       <div className="container mx-auto px-4 py-10">
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-7 gap-10">
           {/* Brand Column */}

@@ -5,7 +5,7 @@ import Link from "next/link";
 
 export default function HeroSection() {
   return (
-    <section className="relative pt-20 pb-8 px-6 overflow-hidden">
+    <section className="relative pt-10 px-6 overflow-hidden">
       {/* Subtle radial glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#FC7B11]/[0.03] rounded-full blur-3xl pointer-events-none" />
 
@@ -36,9 +36,7 @@ export default function HeroSection() {
 
         {/* Subtitle */}
         <p className="text-lg text-gray-400 mb-0 max-w-md mx-auto leading-relaxed">
-          Instant, AI-powered legal guidance —
-          <br className="hidden sm:block" />
-          so you can build, not worry.
+          Instant, professional legal guidance
         </p>
       </div>
     </section>

@@ -31,6 +31,8 @@ export default function HomepageInput() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [phraseIndex, setPhraseIndex] = useState(0);
   const [charIndex, setCharIndex] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
+  
   const phrases = [
     "hiring remote workers",
     "drafting SaaS NDA",
@@ -41,7 +43,7 @@ export default function HomepageInput() {
   useEffect(() => {
     const baseText = "Ask Elle AI about ";
     const currentPhrase = phrases[phraseIndex];
-    const typingSpeed = isDeleting ? 25 : 25;
+    const typingSpeed = isDeleting ? 25 : 40;
     const pauseTime = 1500;
 
     const timer = setTimeout(() => {
@@ -162,7 +164,7 @@ export default function HomepageInput() {
   };
 
   return (
-    <div className="relative w-[85%] max-w-2xl mx-auto mb-60 px-4">
+    <div className="relative w-full max-w-2xl mx-auto px-4 z-20">
       <input
         type="file"
         className="fixed -top-4 -left-4 size-0.5 opacity-0 pointer-events-none"
@@ -173,7 +175,7 @@ export default function HomepageInput() {
       />
 
       {(attachments.length > 0 || uploadQueue.length > 0) && (
-        <div className="flex flex-row gap-2 overflow-x-scroll items-end mb-2">
+        <div className="flex flex-row gap-2 overflow-x-scroll items-end mb-2 p-1">
           {attachments.map((attachment) => (
             <PreviewAttachment key={attachment.url} attachment={attachment} />
           ))}
@@ -192,17 +194,25 @@ export default function HomepageInput() {
         </div>
       )}
 
-      <div className="relative">
+      <div 
+        className={`relative transition-all duration-300 ease-in-out ${
+          isFocused 
+            ? "shadow-[0_0_20px_rgba(252,123,17,0.15)] ring-1 ring-[#FC7B11]/30" 
+            : "shadow-lg"
+        } rounded-2xl bg-[#0a0a0a] border border-[#2a2a2a]`}
+      >
         <Textarea
           ref={textareaRef}
           placeholder={placeholder}
           value={input}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
           onChange={(e) => {
             setInput(e.target.value);
             adjustHeight();
           }}
-          className="min-h-[14px] max-h-[75dvh] resize-none rounded-2xl pb-10 pr-16 pl-6 pt-3 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-          rows={2}
+          className="min-h-[60px] max-h-[200px] w-full resize-none rounded-2xl pb-12 pr-14 pl-5 pt-4 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0 text-gray-100 placeholder-gray-500/80 text-[16px] leading-relaxed"
+          rows={1}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
@@ -211,75 +221,49 @@ export default function HomepageInput() {
           }}
         />
 
-        <div className="absolute bottom-2 left-2">
-        <Button
-          className="rounded-full p-1.5 h-fit hover:bg-gray-100 dark:hover:bg-gray-700"
-          variant="ghost"
-          onClick={() => fileInputRef.current?.click()}
-        >
-            <PaperclipIcon size={14} />
+        <div className="absolute bottom-2.5 left-3">
+          <Button
+            className="rounded-full size-8 p-0 text-gray-400 hover:text-gray-200 hover:bg-white/5 transition-colors"
+            variant="ghost"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <PaperclipIcon size={18} />
           </Button>
         </div>
 
-        <div className="absolute bottom-2 right-2">
-        <Button
-          className="rounded-full p-1.5 h-fit bg-[#FC7B11] hover:bg-[#FC7B11]/90 text-white"
-          onClick={handleSubmit}
-          disabled={input.trim() === "" && attachments.length === 0}
-        >
-            <ArrowUpIcon size={14} />
+        <div className="absolute bottom-2.5 right-3">
+          <Button
+            className={`rounded-full size-8 p-0 transition-all duration-200 ${
+              input.trim() || attachments.length > 0 
+                ? "bg-[#FC7B11] hover:bg-[#FC7B11]/90 text-white shadow-md transform hover:scale-105" 
+                : "bg-[#2a2a2a] text-gray-500 cursor-not-allowed"
+            }`}
+            onClick={handleSubmit}
+            disabled={input.trim() === "" && attachments.length === 0}
+          >
+            <ArrowUpIcon size={18} />
           </Button>
         </div>
       </div>
 
-      {/* Quick question buttons */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
-        <Button
-          variant="outline"
-          className="rounded-full gap-2 px-4 py-2 text-sm border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-          onClick={() =>
-            handleQuickQuestion(
-              "What are the key clauses in a startup SAFE agreement?"
-            )
-          }
-        >
-          <FileText size={16} />
-          SAFE agreement
-        </Button>
-        <Button
-          variant="outline"
-          className="rounded-full gap-2 px-4 py-2 text-sm border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-          onClick={() =>
-            handleQuickQuestion(
-              "How to protect IP when hiring remote developers?"
-            )
-          }
-        >
-          <Users size={16} />
-          Hire remote work
-        </Button>
-        <Button
-          variant="outline"
-          className="rounded-full gap-2 px-4 py-2 text-sm border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-          onClick={() =>
-            handleQuickQuestion("Draft a standard NDA for a SaaS startup.")
-          }
-        >
-          <FileSignature size={16} />
-          NDA for SaaS
-        </Button>
-        <Button
-          variant="outline"
-          className="rounded-full gap-2 px-4 py-2 text-sm border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-          onClick={() =>
-            handleQuickQuestion(
-              "What's the difference between a C-corp and LLC?"
-            )
-          }
-        >
-          <GitCompare size={16} />
-          C-corp vs LLC
-        </Button>
+      {/* Quick question buttons - Sleeker look */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-5">
+        {[
+          { icon: FileText, text: "SAFE agreement", query: "What are the key clauses in a startup SAFE agreement?" },
+          { icon: Users, text: "Hire remote work", query: "How to protect IP when hiring remote developers?" },
+          { icon: FileSignature, text: "NDA for SaaS", query: "Draft a standard NDA for a SaaS startup." },
+          { icon: GitCompare, text: "C-corp vs LLC", query: "What's the difference between a C-corp and LLC?" }
+        ].map((item, i) => (
+          <Button
+            key={item.text}
+            variant="ghost"
+            className="h-auto py-2.5 px-1 rounded-xl flex flex-col sm:flex-row gap-2 items-center justify-center text-xs sm:text-sm font-medium text-gray-400 hover:text-gray-100 bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.05] hover:border-white/[0.1] transition-all duration-200"
+            onClick={() => handleQuickQuestion(item.query)}
+          >
+            <item.icon className="size-4 opacity-70" />
+            <span>{item.text}</span>
+          </Button>
+        ))}
       </div>
     </div>
   );

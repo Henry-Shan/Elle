@@ -96,21 +96,7 @@ const NavBar = () => {
               </DropdownMenu>
             </>
           ) : (
-            <>
-              <Button
-                variant="ghost"
-                asChild
-                className="text-gray-400 hover:text-gray-100 hover:bg-gray-800 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200"
-              >
-                <Link href="/login">Sign in</Link>
-              </Button>
-              <Button
-                asChild
-                className="rounded-lg bg-white hover:bg-gray-100 text-gray-900 font-semibold px-5 py-2 text-sm transition-all duration-200"
-              >
-                <Link href="/register">Get Started</Link>
-              </Button>
-            </>
+            null
           )}
         </div>
 
@@ -151,21 +137,9 @@ const NavBar = () => {
                   </Button>
                 </>
               ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    asChild
-                    className="justify-start text-gray-300 hover:bg-gray-800 rounded-lg px-3 py-2"
-                  >
-                    <Link href="/login">Sign in</Link>
-                  </Button>
-                  <Button
-                    asChild
-                    className="justify-start bg-white hover:bg-gray-100 text-gray-900 rounded-lg px-3 py-2"
-                  >
-                    <Link href="/register">Get Started</Link>
-                  </Button>
-                </>
+                <div className="text-sm text-gray-500 text-center py-4">
+                  Welcome to Elle AI
+                </div>
               )}
             </div>
           </SheetContent>
