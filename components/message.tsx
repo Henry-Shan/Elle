@@ -2,9 +2,9 @@
 
 import type { ChatRequestOptions, Message } from 'ai';
 import { AnimatePresence, motion } from 'framer-motion';
-import { memo, useState, useEffect, useCallback } from 'react';
+import { memo, useState, useEffect, useRef } from 'react';
 import type { Vote } from '@/lib/db/schema';
-import { PencilEditIcon, SparklesIcon } from './icons';
+import { PencilEditIcon, SparklesIcon, CheckCircleFillIcon, LoaderIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
@@ -14,6 +14,98 @@ import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { MessageEditor } from './message-editor';
 import { ThoughtProcessTimeline } from './thought-process-timeline';
+
+const ghostPhrases = [
+  'Searching knowledge base',
+  'Analyzing legal precedents',
+  'Cross-referencing statutes',
+  'Reviewing compliance guidelines',
+  'Parsing regulatory frameworks',
+  'Consulting case law databases',
+  'Evaluating risk factors',
+  'Scanning contract clauses',
+  'Retrieving relevant documents',
+  'Mapping jurisdictional requirements',
+  'Assessing liability exposure',
+  'Reviewing industry standards',
+  'Checking regulatory updates',
+  'Synthesizing legal opinions',
+  'Verifying statutory references',
+  'Examining dispute history',
+  'Drafting initial analysis',
+  'Correlating compliance data',
+  'Reviewing enforcement actions',
+  'Formulating recommendations',
+];
+
+const GhostTaskBlock = ({ isLoading }: { isLoading: boolean }) => {
+  const [tasks, setTasks] = useState<string[]>([]);
+  const availableRef = useRef<string[]>([...ghostPhrases]);
+  const [finished, setFinished] = useState(false);
+
+  useEffect(() => {
+    if (!isLoading && tasks.length > 0) {
+      setFinished(true);
+      return;
+    }
+    if (!isLoading) return;
+
+    const pickNext = () => {
+      if (availableRef.current.length === 0) {
+        availableRef.current = [...ghostPhrases];
+      }
+      const pool = availableRef.current;
+      const idx = Math.floor(Math.random() * pool.length);
+      const picked = pool[idx];
+      pool.splice(idx, 1);
+      setTasks((t) => [...t, picked]);
+    };
+
+    pickNext();
+    const id = setInterval(pickNext, 2500);
+    return () => clearInterval(id);
+  }, [isLoading]);
+
+  if (tasks.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <AnimatePresence>
+        {tasks.map((task, i) => {
+          const isLatest = i === tasks.length - 1;
+          const isDone = finished || !isLatest;
+          return (
+            <motion.div
+              key={`ghost-${task}`}
+              className="flex items-center gap-2"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              {isDone ? (
+                <span className="text-emerald-500 shrink-0">
+                  <CheckCircleFillIcon size={12} />
+                </span>
+              ) : (
+                <span className="animate-spin text-muted-foreground shrink-0">
+                  <LoaderIcon size={12} />
+                </span>
+              )}
+              <span
+                className={cn('text-sm', {
+                  'text-muted-foreground': isDone,
+                  'text-foreground font-medium': !isDone,
+                })}
+              >
+                {task}{!isDone ? '...' : ''}
+              </span>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const PurePreviewMessage = ({
   chatId,
@@ -67,6 +159,10 @@ const PurePreviewMessage = ({
           )}
 
           <div className="flex flex-col gap-4 w-full">
+            {message.role === 'assistant' && (
+              <GhostTaskBlock isLoading={isLoading} />
+            )}
+
             {message.experimental_attachments && (
               <div
                 data-testid={`message-attachments`}
@@ -116,8 +212,8 @@ const PurePreviewMessage = ({
                 )}
 
                 <div
-                  className={cn('flex flex-col gap-4', {
-                    'bg-primary text-primary-foreground px-3 py-1 rounded-xl':
+                  className={cn('flex flex-col gap-4 [&>*:first-child]:mt-0', {
+                    'bg-primary text-primary-foreground px-3 py-2 rounded-xl [&>*:last-child]:mb-0':
                       message.role === 'user',
                   })}
                 >
@@ -176,47 +272,8 @@ export const PreviewMessage = memo(
   },
 );
 
-const ghostPhrases = [
-  'Searching knowledge base...',
-  'Analyzing legal precedents...',
-  'Cross-referencing statutes...',
-  'Reviewing compliance guidelines...',
-  'Parsing regulatory frameworks...',
-  'Consulting case law databases...',
-  'Evaluating risk factors...',
-  'Scanning contract clauses...',
-  'Retrieving relevant documents...',
-  'Mapping jurisdictional requirements...',
-  'Assessing liability exposure...',
-  'Reviewing industry standards...',
-  'Checking regulatory updates...',
-  'Synthesizing legal opinions...',
-  'Verifying statutory references...',
-  'Examining dispute history...',
-  'Drafting initial analysis...',
-  'Correlating compliance data...',
-  'Reviewing enforcement actions...',
-  'Formulating recommendations...',
-];
-
-function useGhostPhrase(intervalMs = 3000) {
-  const pickRandom = useCallback(() => {
-    return ghostPhrases[Math.floor(Math.random() * ghostPhrases.length)];
-  }, []);
-
-  const [phrase, setPhrase] = useState(pickRandom);
-
-  useEffect(() => {
-    const id = setInterval(() => setPhrase(pickRandom()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs, pickRandom]);
-
-  return phrase;
-}
-
 export const ThinkingMessage = () => {
   const role = 'assistant';
-  const phrase = useGhostPhrase(3000);
 
   return (
     <motion.div
@@ -240,44 +297,8 @@ export const ThinkingMessage = () => {
           </motion.div>
         </div>
 
-        <div className="flex flex-col gap-2 w-full">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <AnimatePresence mode="wait">
-              <motion.span
-                key={phrase}
-                className="text-sm font-medium"
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                transition={{ duration: 0.3 }}
-              >
-                {phrase}
-              </motion.span>
-            </AnimatePresence>
-            <motion.div
-              className="flex gap-1"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  className="w-1 h-1 bg-muted-foreground rounded-full"
-                  animate={{
-                    scale: [1, 1.2, 1],
-                    opacity: [0.5, 1, 0.5],
-                  }}
-                  transition={{
-                    duration: 1.5,
-                    repeat: Number.POSITIVE_INFINITY,
-                    delay: i * 0.2,
-                    ease: 'easeInOut',
-                  }}
-                />
-              ))}
-            </motion.div>
-          </div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <span className="text-sm font-medium">Thinking...</span>
         </div>
       </div>
     </motion.div>
