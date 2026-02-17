@@ -43,6 +43,41 @@ const collapseVariants = {
   },
 };
 
+/** Flat block for a status event (RAG pipeline sub-step) — same style as tool blocks */
+export function StatusStepItem({
+  label,
+  isDone,
+}: {
+  label: string;
+  isDone: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      {isDone ? (
+        <span className="text-emerald-500 shrink-0">
+          <CheckCircleFillIcon size={16} />
+        </span>
+      ) : (
+        <span className="text-muted-foreground animate-spin shrink-0">
+          <LoaderIcon size={16} />
+        </span>
+      )}
+      <span className="text-sm font-medium">{label}</span>
+      <span
+        className={cx(
+          'text-[10px] font-medium px-2 py-0.5 rounded-full',
+          isDone
+            ? 'bg-emerald-500/10 text-emerald-500'
+            : 'bg-muted text-muted-foreground',
+        )}
+      >
+        {isDone ? 'Done' : 'Running'}
+      </span>
+    </div>
+  );
+}
+
+/** Block for a tool invocation or reasoning step — with collapsible content */
 export function TimelineStepItem({
   step,
   isReadonly,
@@ -50,32 +85,32 @@ export function TimelineStepItem({
   step: TimelineStep;
   isReadonly: boolean;
 }) {
-  const [isExpanded, setIsExpanded] = useState(step.status === 'in_progress');
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const isCompleted = step.status === 'completed';
   const ToolIcon = step.type === 'tool' ? getToolIcon(step.toolName) : null;
 
-  return (
-    <div className="relative pl-8 pb-4 last:pb-0">
-      {/* Step circle */}
-      <div className="absolute -left-[11px] top-0.5 flex items-center justify-center size-[22px] rounded-full bg-background">
-        {isCompleted ? (
-          <span className="text-emerald-500">
-            <CheckCircleFillIcon size={18} />
-          </span>
-        ) : (
-          <span className="text-muted-foreground animate-spin">
-            <LoaderIcon size={18} />
-          </span>
-        )}
-      </div>
+  const hasContent =
+    (step.type === 'reasoning' && step.reasoning) ||
+    (step.type === 'tool' && step.toolInvocation);
 
+  return (
+    <div className="py-1">
       {/* Step header */}
       <button
         type="button"
         className="flex items-center gap-2 cursor-pointer w-full text-left group"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => hasContent && setIsExpanded(!isExpanded)}
       >
+        {isCompleted ? (
+          <span className="text-emerald-500 shrink-0">
+            <CheckCircleFillIcon size={16} />
+          </span>
+        ) : (
+          <span className="text-muted-foreground animate-spin shrink-0">
+            <LoaderIcon size={16} />
+          </span>
+        )}
         {ToolIcon && (
           <span className="text-muted-foreground">
             <ToolIcon size={14} />
@@ -98,44 +133,48 @@ export function TimelineStepItem({
             {isCompleted ? 'Done' : 'Running'}
           </span>
         )}
-        <ChevronDownIcon
-          size={14}
-          className={cx(
-            'ml-auto transition-transform duration-200 text-muted-foreground opacity-0 group-hover:opacity-100',
-            isExpanded ? 'rotate-0' : '-rotate-90',
-          )}
-        />
+        {hasContent && (
+          <ChevronDownIcon
+            size={14}
+            className={cx(
+              'ml-auto transition-transform duration-200 text-muted-foreground opacity-0 group-hover:opacity-100',
+              isExpanded ? 'rotate-0' : '-rotate-90',
+            )}
+          />
+        )}
       </button>
 
       {/* Collapsible content */}
-      <AnimatePresence initial={false}>
-        {isExpanded && (
-          <motion.div
-            key="content"
-            initial="collapsed"
-            animate="expanded"
-            exit="collapsed"
-            variants={collapseVariants}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
-          >
-            <div className="mt-2">
-              {step.type === 'reasoning' && step.reasoning && (
-                <div className="pl-4 text-zinc-600 dark:text-zinc-400 border-l flex flex-col gap-4">
-                  <Markdown>{step.reasoning}</Markdown>
-                </div>
-              )}
+      {hasContent && (
+        <AnimatePresence initial={false}>
+          {isExpanded && (
+            <motion.div
+              key="content"
+              initial="collapsed"
+              animate="expanded"
+              exit="collapsed"
+              variants={collapseVariants}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              style={{ overflow: 'hidden' }}
+            >
+              <div className="mt-2 ml-6">
+                {step.type === 'reasoning' && step.reasoning && (
+                  <div className="pl-4 text-zinc-600 dark:text-zinc-400 border-l flex flex-col gap-4">
+                    <Markdown>{step.reasoning}</Markdown>
+                  </div>
+                )}
 
-              {step.type === 'tool' && step.toolInvocation && (
-                <ToolContent
-                  toolInvocation={step.toolInvocation}
-                  isReadonly={isReadonly}
-                />
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                {step.type === 'tool' && step.toolInvocation && (
+                  <ToolContent
+                    toolInvocation={step.toolInvocation}
+                    isReadonly={isReadonly}
+                  />
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      )}
     </div>
   );
 }

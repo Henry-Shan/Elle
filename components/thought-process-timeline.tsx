@@ -1,24 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ToolInvocation } from 'ai';
 import { buildTimelineSteps } from '@/lib/timeline';
-import { CheckCircleFillIcon, ChevronDownIcon, LoaderIcon } from './icons';
-import { TimelineStepItem } from './timeline-step';
-
-const collapseVariants = {
-  collapsed: {
-    height: 0,
-    opacity: 0,
-    marginTop: 0,
-  },
-  expanded: {
-    height: 'auto',
-    opacity: 1,
-    marginTop: 12,
-  },
-};
+import { TimelineStepItem, StatusStepItem } from './timeline-step';
+import { useGenerationStatus } from '@/hooks/use-generation-status';
 
 export function ThoughtProcessTimeline({
   reasoning,
@@ -36,74 +23,46 @@ export function ThoughtProcessTimeline({
     [reasoning, toolInvocations, isLoading],
   );
 
-  const [isExpanded, setIsExpanded] = useState(true);
+  const { steps: statusSteps, isActive } = useGenerationStatus();
 
-  if (steps.length === 0) return null;
-
-  const allDone = steps.every((s) => s.status === 'completed');
-  const isStreaming = !allDone;
+  if (steps.length === 0 && statusSteps.length === 0) return null;
 
   return (
-    <div className="flex flex-col">
-      {/* Header */}
-      <button
-        type="button"
-        className="flex items-center gap-2 cursor-pointer group"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        {isStreaming ? (
-          <>
-            <span className="text-sm font-medium">Processing</span>
-            <span className="animate-spin text-muted-foreground">
-              <LoaderIcon size={14} />
-            </span>
-          </>
-        ) : (
-          <>
-            <span className="text-sm font-medium">Thought Process</span>
-            <span className="text-emerald-500">
-              <CheckCircleFillIcon size={14} />
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {steps.length} {steps.length === 1 ? 'step' : 'steps'}
-            </span>
-          </>
-        )}
-        <ChevronDownIcon
-          size={14}
-          className={`transition-transform duration-200 text-muted-foreground opacity-0 group-hover:opacity-100 ${
-            isExpanded ? 'rotate-0' : '-rotate-90'
-          }`}
-        />
-      </button>
+    <div className="flex flex-col gap-2">
+      <AnimatePresence>
+        {/* Render status steps (RAG pipeline sub-steps) */}
+        {statusSteps.map((stepText, i) => {
+          const isLatest = i === statusSteps.length - 1;
+          const isDone = !isActive || !isLatest;
+          return (
+            <motion.div
+              key={`status-${i}-${stepText}`}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2 }}
+            >
+              <StatusStepItem
+                label={stepText}
+                isDone={isDone}
+              />
+            </motion.div>
+          );
+        })}
 
-      {/* Collapsible body */}
-      <AnimatePresence initial={false}>
-        {isExpanded && (
+        {/* Render tool / reasoning steps */}
+        {steps.map((step) => (
           <motion.div
-            key="timeline-body"
-            initial="collapsed"
-            animate="expanded"
-            exit="collapsed"
-            variants={collapseVariants}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            style={{ overflow: 'hidden' }}
+            key={step.id}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
           >
-            <div className="relative pl-[11px]">
-              {/* Vertical line */}
-              <div className="absolute left-0 top-2 bottom-2 w-px bg-border" />
-
-              {/* Steps */}
-              {steps.map((step) => (
-                <TimelineStepItem
-                  key={step.id}
-                  step={step}
-                  isReadonly={isReadonly}
-                />
-              ))}
-            </div>
+            <TimelineStepItem
+              step={step}
+              isReadonly={isReadonly}
+            />
           </motion.div>
-        )}
+        ))}
       </AnimatePresence>
     </div>
   );

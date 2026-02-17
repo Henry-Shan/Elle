@@ -4,7 +4,7 @@ import type { ChatRequestOptions, Message } from 'ai';
 import { AnimatePresence, motion } from 'framer-motion';
 import { memo, useState } from 'react';
 import type { Vote } from '@/lib/db/schema';
-import { PencilEditIcon, SparklesIcon, CheckCircleFillIcon, LoaderIcon } from './icons';
+import { PencilEditIcon, SparklesIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
@@ -14,51 +14,6 @@ import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { MessageEditor } from './message-editor';
 import { ThoughtProcessTimeline } from './thought-process-timeline';
-import { useGenerationStatus } from '@/hooks/use-generation-status';
-
-const GhostTaskBlock = () => {
-  const { steps, isActive } = useGenerationStatus();
-
-  if (steps.length === 0) return null;
-
-  return (
-    <div className="flex flex-col gap-1">
-      <AnimatePresence>
-        {steps.map((step, i) => {
-          const isLatest = i === steps.length - 1;
-          const isDone = !isActive || !isLatest;
-          return (
-            <motion.div
-              key={`status-${i}-${step}`}
-              className="flex items-center gap-2"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-            >
-              {isDone ? (
-                <span className="text-emerald-500 shrink-0">
-                  <CheckCircleFillIcon size={12} />
-                </span>
-              ) : (
-                <span className="animate-spin text-muted-foreground shrink-0">
-                  <LoaderIcon size={12} />
-                </span>
-              )}
-              <span
-                className={cn('text-sm', {
-                  'text-muted-foreground': isDone,
-                  'text-foreground font-medium': !isDone,
-                })}
-              >
-                {step}{!isDone ? '...' : ''}
-              </span>
-            </motion.div>
-          );
-        })}
-      </AnimatePresence>
-    </div>
-  );
-};
 
 const PurePreviewMessage = ({
   chatId,
@@ -112,10 +67,6 @@ const PurePreviewMessage = ({
           )}
 
           <div className="flex flex-col gap-4 w-full">
-            {message.role === 'assistant' && (
-              <GhostTaskBlock />
-            )}
-
             {message.experimental_attachments && (
               <div
                 data-testid={`message-attachments`}
@@ -130,9 +81,7 @@ const PurePreviewMessage = ({
               </div>
             )}
 
-            {(message.reasoning ||
-              (message.toolInvocations &&
-                message.toolInvocations.length > 0)) && (
+            {message.role === 'assistant' && (
               <ThoughtProcessTimeline
                 reasoning={message.reasoning}
                 toolInvocations={message.toolInvocations}
