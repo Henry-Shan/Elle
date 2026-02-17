@@ -2,7 +2,7 @@
 
 import type { ChatRequestOptions, Message } from 'ai';
 import { AnimatePresence, motion } from 'framer-motion';
-import { memo, useState } from 'react';
+import { memo, useState, useEffect, useCallback } from 'react';
 import type { Vote } from '@/lib/db/schema';
 import { PencilEditIcon, SparklesIcon } from './icons';
 import { Markdown } from './markdown';
@@ -81,7 +81,9 @@ const PurePreviewMessage = ({
               </div>
             )}
 
-            {(message.reasoning || (message.toolInvocations && message.toolInvocations.length > 0)) && (
+            {(message.reasoning ||
+              (message.toolInvocations &&
+                message.toolInvocations.length > 0)) && (
               <ThoughtProcessTimeline
                 reasoning={message.reasoning}
                 toolInvocations={message.toolInvocations}
@@ -174,8 +176,47 @@ export const PreviewMessage = memo(
   },
 );
 
+const ghostPhrases = [
+  'Searching knowledge base...',
+  'Analyzing legal precedents...',
+  'Cross-referencing statutes...',
+  'Reviewing compliance guidelines...',
+  'Parsing regulatory frameworks...',
+  'Consulting case law databases...',
+  'Evaluating risk factors...',
+  'Scanning contract clauses...',
+  'Retrieving relevant documents...',
+  'Mapping jurisdictional requirements...',
+  'Assessing liability exposure...',
+  'Reviewing industry standards...',
+  'Checking regulatory updates...',
+  'Synthesizing legal opinions...',
+  'Verifying statutory references...',
+  'Examining dispute history...',
+  'Drafting initial analysis...',
+  'Correlating compliance data...',
+  'Reviewing enforcement actions...',
+  'Formulating recommendations...',
+];
+
+function useGhostPhrase(intervalMs = 3000) {
+  const pickRandom = useCallback(() => {
+    return ghostPhrases[Math.floor(Math.random() * ghostPhrases.length)];
+  }, []);
+
+  const [phrase, setPhrase] = useState(pickRandom);
+
+  useEffect(() => {
+    const id = setInterval(() => setPhrase(pickRandom()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs, pickRandom]);
+
+  return phrase;
+}
+
 export const ThinkingMessage = () => {
   const role = 'assistant';
+  const phrase = useGhostPhrase(3000);
 
   return (
     <motion.div
@@ -189,7 +230,11 @@ export const ThinkingMessage = () => {
         <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background">
           <motion.div
             animate={{ rotate: 360 }}
-            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            transition={{
+              duration: 2,
+              repeat: Number.POSITIVE_INFINITY,
+              ease: 'linear',
+            }}
           >
             <SparklesIcon size={14} />
           </motion.div>
@@ -197,7 +242,18 @@ export const ThinkingMessage = () => {
 
         <div className="flex flex-col gap-2 w-full">
           <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="text-sm font-medium">Thinking</span>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={phrase}
+                className="text-sm font-medium"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.3 }}
+              >
+                {phrase}
+              </motion.span>
+            </AnimatePresence>
             <motion.div
               className="flex gap-1"
               initial={{ opacity: 0 }}
@@ -214,9 +270,9 @@ export const ThinkingMessage = () => {
                   }}
                   transition={{
                     duration: 1.5,
-                    repeat: Infinity,
+                    repeat: Number.POSITIVE_INFINITY,
                     delay: i * 0.2,
-                    ease: "easeInOut",
+                    ease: 'easeInOut',
                   }}
                 />
               ))}

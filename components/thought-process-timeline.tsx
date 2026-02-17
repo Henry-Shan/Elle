@@ -1,11 +1,49 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { ToolInvocation } from 'ai';
 import { buildTimelineSteps } from '@/lib/timeline';
 import { CheckCircleFillIcon, ChevronDownIcon, LoaderIcon } from './icons';
 import { TimelineStepItem } from './timeline-step';
+
+const ghostPhrases = [
+  'Searching knowledge base...',
+  'Analyzing legal precedents...',
+  'Cross-referencing statutes...',
+  'Reviewing compliance guidelines...',
+  'Parsing regulatory frameworks...',
+  'Consulting case law databases...',
+  'Evaluating risk factors...',
+  'Scanning contract clauses...',
+  'Retrieving relevant documents...',
+  'Mapping jurisdictional requirements...',
+  'Assessing liability exposure...',
+  'Reviewing industry standards...',
+  'Checking regulatory updates...',
+  'Synthesizing legal opinions...',
+  'Verifying statutory references...',
+  'Examining dispute history...',
+  'Drafting initial analysis...',
+  'Correlating compliance data...',
+  'Reviewing enforcement actions...',
+  'Formulating recommendations...',
+];
+
+function useGhostPhrase(intervalMs = 3000) {
+  const pickRandom = useCallback(() => {
+    return ghostPhrases[Math.floor(Math.random() * ghostPhrases.length)];
+  }, []);
+
+  const [phrase, setPhrase] = useState(pickRandom);
+
+  useEffect(() => {
+    const id = setInterval(() => setPhrase(pickRandom()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs, pickRandom]);
+
+  return phrase;
+}
 
 const collapseVariants = {
   collapsed: {
@@ -38,6 +76,8 @@ export function ThoughtProcessTimeline({
 
   const [isExpanded, setIsExpanded] = useState(true);
 
+  const ghostPhrase = useGhostPhrase(3000);
+
   if (steps.length === 0) return null;
 
   const allDone = steps.every((s) => s.status === 'completed');
@@ -53,7 +93,18 @@ export function ThoughtProcessTimeline({
       >
         {isStreaming ? (
           <>
-            <span className="text-sm font-medium">j...</span>
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={ghostPhrase}
+                className="text-sm font-medium"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4 }}
+                transition={{ duration: 0.3 }}
+              >
+                {ghostPhrase}
+              </motion.span>
+            </AnimatePresence>
             <span className="animate-spin text-muted-foreground">
               <LoaderIcon size={14} />
             </span>
