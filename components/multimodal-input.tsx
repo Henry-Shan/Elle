@@ -1,14 +1,13 @@
-"use client";
+'use client';
 
 import type {
   Attachment,
   ChatRequestOptions,
   CreateMessage,
   Message,
-} from "ai";
-import cx from "classnames";
-import type React from "react";
-import { motion } from "framer-motion";
+} from 'ai';
+import cx from 'classnames';
+import type React from 'react';
 import {
   useRef,
   useEffect,
@@ -18,18 +17,18 @@ import {
   type SetStateAction,
   type ChangeEvent,
   memo,
-} from "react";
-import { toast } from "sonner";
-import { useLocalStorage, useWindowSize } from "usehooks-ts";
+} from 'react';
+import { toast } from 'sonner';
+import { useLocalStorage, useWindowSize } from 'usehooks-ts';
 
-import { sanitizeUIMessages } from "@/lib/utils";
+import { sanitizeUIMessages } from '@/lib/utils';
 
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from "./icons";
-import { PreviewAttachment } from "./preview-attachment";
-import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
-import { SuggestedActions } from "./suggested-actions";
-import equal from "fast-deep-equal";
+import { ArrowUpIcon, PaperclipIcon, StopIcon } from './icons';
+import { PreviewAttachment } from './preview-attachment';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
+import { SuggestedActions } from './suggested-actions';
+import equal from 'fast-deep-equal';
 
 function PureMultimodalInput({
   chatId,
@@ -56,13 +55,13 @@ function PureMultimodalInput({
   setMessages: Dispatch<SetStateAction<Array<Message>>>;
   append: (
     message: Message | CreateMessage,
-    chatRequestOptions?: ChatRequestOptions
+    chatRequestOptions?: ChatRequestOptions,
   ) => Promise<string | null | undefined>;
   handleSubmit: (
     event?: {
       preventDefault?: () => void;
     },
-    chatRequestOptions?: ChatRequestOptions
+    chatRequestOptions?: ChatRequestOptions,
   ) => void;
   className?: string;
 }) {
@@ -75,9 +74,19 @@ function PureMultimodalInput({
     }
   }, []);
 
+  useEffect(() => {
+    if (isLoading && textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+    }
+  }, [isLoading]);
+
   const adjustHeight = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
+      if (isLoading) {
+        textareaRef.current.style.height = 'auto';
+        return;
+      }
+      textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${
         textareaRef.current.scrollHeight + 2
       }px`;
@@ -86,40 +95,40 @@ function PureMultimodalInput({
 
   const resetHeight = () => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = "98px";
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = '98px';
     }
   };
 
   const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    "input",
-    ""
+    'input',
+    '',
   );
 
   useEffect(() => {
     // Check for stored input/attachments from homepage
-    const storedInput = sessionStorage.getItem("homepageInput");
-    const storedAttachments = sessionStorage.getItem("homepageAttachments");
+    const storedInput = sessionStorage.getItem('homepageInput');
+    const storedAttachments = sessionStorage.getItem('homepageAttachments');
 
     if (storedInput) {
       setInput(storedInput);
-      sessionStorage.removeItem("homepageInput");
+      sessionStorage.removeItem('homepageInput');
     }
 
     if (storedAttachments) {
       try {
         const parsedAttachments = JSON.parse(storedAttachments);
         setAttachments(parsedAttachments);
-        sessionStorage.removeItem("homepageAttachments");
+        sessionStorage.removeItem('homepageAttachments');
       } catch (error) {
-        console.error("Failed to parse stored attachments", error);
+        console.error('Failed to parse stored attachments', error);
       }
     }
 
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
       // Prefer DOM value over localStorage to handle hydration
-      const finalValue = domValue || storedInput || localStorageInput || "";
+      const finalValue = domValue || storedInput || localStorageInput || '';
       setInput(finalValue);
       adjustHeight();
     }
@@ -140,14 +149,14 @@ function PureMultimodalInput({
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
 
   const submitForm = useCallback(() => {
-    window.history.replaceState({}, "", `/chat/${chatId}`);
+    window.history.replaceState({}, '', `/chat/${chatId}`);
 
     handleSubmit(undefined, {
       experimental_attachments: attachments,
     });
 
     setAttachments([]);
-    setLocalStorageInput("");
+    setLocalStorageInput('');
     resetHeight();
 
     if (width && width > 768) {
@@ -164,11 +173,11 @@ function PureMultimodalInput({
 
   const uploadFile = async (file: File) => {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append('file', file);
 
     try {
-      const response = await fetch("/api/files/upload", {
-        method: "POST",
+      const response = await fetch('/api/files/upload', {
+        method: 'POST',
         body: formData,
       });
 
@@ -185,7 +194,7 @@ function PureMultimodalInput({
       const { error } = await response.json();
       toast.error(error);
     } catch (error) {
-      toast.error("Failed to upload file, please try again!");
+      toast.error('Failed to upload file, please try again!');
     }
   };
 
@@ -199,7 +208,7 @@ function PureMultimodalInput({
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined
+          (attachment) => attachment !== undefined,
         );
 
         setAttachments((currentAttachments) => [
@@ -207,12 +216,12 @@ function PureMultimodalInput({
           ...successfullyUploadedAttachments,
         ]);
       } catch (error) {
-        console.error("Error uploading files!", error);
+        console.error('Error uploading files!', error);
       } finally {
         setUploadQueue([]);
       }
     },
-    [setAttachments]
+    [setAttachments],
   );
 
   return (
@@ -245,9 +254,9 @@ function PureMultimodalInput({
             <PreviewAttachment
               key={filename}
               attachment={{
-                url: "",
+                url: '',
                 name: filename,
-                contentType: "",
+                contentType: '',
               }}
               isUploading={true}
             />
@@ -259,37 +268,42 @@ function PureMultimodalInput({
         <Textarea
           data-testid="multimodal-input"
           ref={textareaRef}
-          placeholder={isLoading ? "Model is generating" : "Ask anything"}
+          placeholder="Ask anything"
           value={input}
           onChange={handleInput}
           disabled={isLoading}
           className={cx(
-            "min-h-[14px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-3xl !text-base bg-muted pr-20 pl-12 py-3 dark:border-zinc-700",
-            isLoading && "opacity-60 cursor-not-allowed",
-            className
+            'min-h-[14px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-3xl !text-base bg-muted pr-20 pl-12 py-3 dark:border-zinc-700',
+            isLoading && 'opacity-60 cursor-not-allowed',
+            className,
           )}
           rows={1}
           autoFocus
           onKeyDown={(event) => {
             if (
-              event.key === "Enter" &&
+              event.key === 'Enter' &&
               !event.shiftKey &&
               !event.nativeEvent.isComposing
             ) {
               event.preventDefault();
 
               if (isLoading) {
-                toast.error("Please wait for the model to finish its response!");
+                toast.error(
+                  'Please wait for the model to finish its response!',
+                );
               } else {
                 submitForm();
               }
             }
           }}
         />
-        
+
         {/* Upload button on the left inside textarea */}
         <div className="absolute left-2 top-1/2 transform -translate-y-1/2">
-          <AttachmentsButton fileInputRef={fileInputRef} isLoading={isLoading} />
+          <AttachmentsButton
+            fileInputRef={fileInputRef}
+            isLoading={isLoading}
+          />
         </div>
 
         {/* Send/Stop button on the right inside textarea */}
@@ -317,7 +331,7 @@ export const MultimodalInput = memo(
     if (!equal(prevProps.attachments, nextProps.attachments)) return false;
 
     return true;
-  }
+  },
 );
 
 function PureAttachmentsButton({

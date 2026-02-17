@@ -188,10 +188,14 @@ const PurePreviewMessage = ({
               />
             )}
 
-            {(message.content || message.reasoning) && mode === 'view' && (
-              <div
+            {(message.content || message.reasoning) && mode === 'view' &&
+              !(message.role === 'assistant' && isLoading) && (
+              <motion.div
                 data-testid="message-content"
                 className="flex flex-row gap-2 items-start"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
               >
                 {message.role === 'user' && !isReadonly && (
                   <Tooltip>
@@ -219,7 +223,7 @@ const PurePreviewMessage = ({
                 >
                   <Markdown>{message.content as string}</Markdown>
                 </div>
-              </div>
+              </motion.div>
             )}
 
             {message.content && mode === 'edit' && (

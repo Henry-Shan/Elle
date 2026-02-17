@@ -2,7 +2,6 @@
 
 import {
   type Message,
-  smoothStream,
   type DataStreamWriter,
 } from 'ai';
 import { systemPrompt } from '@/lib/ai/prompts';
@@ -60,7 +59,6 @@ const ExecuteChat = gensx.Component<ExecuteChatProps, any>(
                     // add tool name here
                   ]
             }
-            experimental_transform={smoothStream({ chunking: 'word' })}
             experimental_generateMessageId={generateUUID}
             tools={{
               getWeather,
