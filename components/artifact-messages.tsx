@@ -37,7 +37,7 @@ function PureArtifactMessages({
     <div className="relative flex flex-col h-full">
       <div
         ref={messagesContainerRef}
-        className="flex flex-col gap-4 h-full items-center overflow-y-scroll px-4 pt-20"
+        className="flex flex-col gap-4 h-full overflow-y-scroll px-4 pt-20"
       >
         {messages.map((message, index) => (
           <PreviewMessage
@@ -54,6 +54,12 @@ function PureArtifactMessages({
             setMessages={setMessages}
             reload={reload}
             isReadonly={isReadonly}
+            isNarrow
+            showAvatar={
+              message.role !== 'assistant' ||
+              index === 0 ||
+              messages[index - 1].role !== 'assistant'
+            }
           />
         ))}
 

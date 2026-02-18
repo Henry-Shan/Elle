@@ -56,6 +56,11 @@ function PureMessages({
             setMessages={setMessages}
             reload={reload}
             isReadonly={isReadonly}
+            showAvatar={
+              message.role !== 'assistant' ||
+              index === 0 ||
+              messages[index - 1].role !== 'assistant'
+            }
           />
         ))}
 

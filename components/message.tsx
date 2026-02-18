@@ -24,6 +24,8 @@ const PurePreviewMessage = ({
   reload,
   isReadonly,
   index,
+  isNarrow = false,
+  showAvatar = true,
 }: {
   chatId: string;
   message: Message;
@@ -37,6 +39,8 @@ const PurePreviewMessage = ({
   ) => Promise<string | null | undefined>;
   isReadonly: boolean;
   index: number;
+  isNarrow?: boolean;
+  showAvatar?: boolean;
 }) => {
   const [mode, setMode] = useState<'view' | 'edit'>('view');
 
@@ -44,26 +48,33 @@ const PurePreviewMessage = ({
     <AnimatePresence>
       <motion.div
         data-testid={`message-${message.role}`}
-        className="w-full mx-auto max-w-3xl px-4 group/message"
+        className={cn(
+          'w-full mx-auto max-w-3xl px-4 group/message',
+          !showAvatar && message.role === 'assistant' && '-mt-4',
+        )}
         initial={{ y: 5, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         data-role={message.role}
       >
         <div
           className={cn(
-            'flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl',
+            'flex gap-4 w-full',
             {
+              'group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl': !isNarrow,
               'w-full': mode === 'edit',
-              'group-data-[role=user]/message:w-fit': mode !== 'edit',
+              'group-data-[role=user]/message:w-fit': mode !== 'edit' && !isNarrow,
             },
           )}
         >
-          {message.role === 'assistant' && (
+          {message.role === 'assistant' && showAvatar && (
             <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background mt-1">
               <div className="translate-y-px">
                 <SparklesIcon size={14} />
               </div>
             </div>
+          )}
+          {message.role === 'assistant' && !showAvatar && (
+            <div className="size-8 shrink-0" />
           )}
 
           <div className="flex flex-col gap-4 w-full">
