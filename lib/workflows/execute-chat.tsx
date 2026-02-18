@@ -72,7 +72,7 @@ const ExecuteChat = gensx.Component<ExecuteChatProps, any>(
               webSearch,
               getDate,
               mcp,
-              legalSearch: legalSearch({ dataStream }),
+              legalSearch: legalSearch({ dataStream, session }),
             }}
             onFinish={async ({ response, reasoning }) => {
               if (session.user?.id) {

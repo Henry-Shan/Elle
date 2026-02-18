@@ -10,7 +10,39 @@ import { buildContentFromDocument } from './functions';
 
 export const documentSchema = new Schema({
   nodes: addListNodes(schema.spec.nodes, 'paragraph block*', 'block'),
-  marks: schema.spec.marks,
+  marks: schema.spec.marks.update('link', {
+    // Extend the default link mark so rendered <a> tags open in a new tab.
+    // The DOMParser rules are kept identical so HTML imported via buildDocumentFromContent
+    // (which uses the Markdown component → renderToString) still parses correctly.
+    attrs: {
+      href: {},
+      title: { default: null },
+    },
+    inclusive: false,
+    parseDOM: [
+      {
+        tag: 'a[href]',
+        getAttrs(dom) {
+          const el = dom as HTMLAnchorElement;
+          return { href: el.getAttribute('href'), title: el.getAttribute('title') };
+        },
+      },
+    ],
+    toDOM(node) {
+      const { href, title } = node.attrs;
+      return [
+        'a',
+        {
+          href,
+          title: title ?? undefined,
+          target: '_blank',
+          rel: 'noreferrer noopener',
+          class: 'text-blue-500 hover:underline cursor-pointer',
+        },
+        0,
+      ];
+    },
+  }),
 });
 
 export function headingRule(level: number) {

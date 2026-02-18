@@ -48,6 +48,21 @@ export const {
     GoogleProvider({
       clientId: GOOGLE_CLIENT_CLIENT_ID,
       clientSecret: GOOGLE_CLIENT_SECRET,
+      // Request Google Drive and Docs scopes so users can export documents
+      // directly to their Google Drive from the artifact toolbar.
+      authorization: {
+        params: {
+          access_type: 'offline',
+          prompt: 'consent',
+          scope: [
+            'openid',
+            'email',
+            'profile',
+            'https://www.googleapis.com/auth/documents',
+            'https://www.googleapis.com/auth/drive.file',
+          ].join(' '),
+        },
+      },
     }),
     GitHubProvider({
       clientId: GITHUB_CLIENT_ID,
@@ -55,7 +70,7 @@ export const {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id = user.id;
       } else if (token.email) {
@@ -63,6 +78,11 @@ export const {
         if (users.length > 0) {
           token.id = users[0].id;
         }
+      }
+      // Store the Google OAuth access token so we can call the Drive/Docs API
+      // on behalf of the user when they export a document.
+      if (account?.provider === 'google' && account.access_token) {
+        token.googleAccessToken = account.access_token;
       }
       return token;
     },
@@ -76,6 +96,8 @@ export const {
       if (session.user) {
         session.user.id = token.id as string;
       }
+      // Expose the Google access token to server-side API routes via the session
+      (session as any).googleAccessToken = token.googleAccessToken ?? null;
 
       return session;
     },

@@ -63,6 +63,20 @@ function PureEditor({
 
       editorRef.current = new EditorView(containerRef.current, {
         state,
+        handleDOMEvents: {
+          // ProseMirror captures all clicks for cursor positioning; this handler
+          // intercepts clicks on <a> elements so they actually open the link.
+          click: (_view, event) => {
+            const target = event.target as HTMLElement;
+            const anchor = target.closest('a') as HTMLAnchorElement | null;
+            if (anchor?.href) {
+              event.preventDefault();
+              window.open(anchor.href, '_blank', 'noreferrer,noopener');
+              return true;
+            }
+            return false;
+          },
+        },
       });
     }
 

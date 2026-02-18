@@ -5,6 +5,7 @@ import { Editor } from '@/components/text-editor';
 import {
   ClockRewind,
   CopyIcon,
+  GoogleDocsIcon,
   MessageIcon,
   PenIcon,
   RedoIcon,
@@ -12,6 +13,7 @@ import {
 } from '@/components/icons';
 import type { Suggestion } from '@/lib/db/schema';
 import { toast } from 'sonner';
+import { signIn } from 'next-auth/react';
 import { getSuggestions } from '../actions';
 
 interface TextArtifactMetadata {
@@ -99,7 +101,7 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
       onClick: ({ handleVersionChange }) => {
         handleVersionChange('toggle');
       },
-      isDisabled: ({ currentVersionIndex, setMetadata }) => {
+      isDisabled: ({ currentVersionIndex }) => {
         if (currentVersionIndex === 0) {
           return true;
         }
@@ -141,6 +143,42 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
       onClick: ({ content }) => {
         navigator.clipboard.writeText(content);
         toast.success('Copied to clipboard!');
+      },
+    },
+    {
+      icon: <GoogleDocsIcon size={18} />,
+      description: 'Open in Google Docs',
+      onClick: async ({ documentId }) => {
+        const toastId = toast.loading('Exporting to Google Docs…');
+        try {
+          const res = await fetch('/api/export/google-docs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ documentId }),
+          });
+
+          const data = await res.json();
+
+          if (!res.ok) {
+            if (data.error === 'google_auth_required' || data.error === 'token_expired') {
+              // Use NextAuth's signIn() — this is the correct v5 API and reuses
+              // the already-registered /api/auth/callback/google redirect URI.
+              // After Google redirects back the user can click the button again.
+              toast.dismiss(toastId);
+              signIn('google', { callbackUrl: window.location.href });
+              return;
+            }
+            toast.error(data.message ?? 'Export failed.', { id: toastId });
+            return;
+          }
+
+          toast.success('Opened in Google Docs!', { id: toastId });
+          window.open(data.url, '_blank', 'noreferrer,noopener');
+        } catch {
+          toast.error('Could not connect to the server. Please try again.', {
+            id: toastId,
+          });
+        }
       },
     },
   ],

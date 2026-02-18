@@ -1173,3 +1173,23 @@ export const WarningIcon = ({ size = 16 }: { size?: number }) => {
     </svg>
   );
 };
+
+/** Google Docs document icon (blue page with folded corner) */
+export const GoogleDocsIcon = ({ size = 16 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M14 2H6C4.9 2 4 2.9 4 4V20C4 21.1 4.9 22 6 22H18C19.1 22 20 21.1 20 20V8L14 2Z"
+      fill="#4285F4"
+    />
+    <path d="M14 2V8H20L14 2Z" fill="#A8C7FA" />
+    <rect x="7" y="13" width="10" height="1.5" rx="0.75" fill="white" />
+    <rect x="7" y="16" width="7" height="1.5" rx="0.75" fill="white" />
+    <rect x="7" y="10" width="4" height="1.5" rx="0.75" fill="white" />
+  </svg>
+);
