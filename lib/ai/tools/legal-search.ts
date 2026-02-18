@@ -6,8 +6,7 @@ import { embedQuery } from '@/lib/rag/embeddings';
 import { deepseek } from '@ai-sdk/deepseek';
 import { mistral } from '@ai-sdk/mistral';
 import {
-  postProcessCitations,
-  formatMarkdownSourceList,
+  postProcessToAPA,
   injectLegalConceptLinks,
   type CitableSource,
 } from '@/lib/rag/citation-utils';
@@ -413,6 +412,122 @@ async function compressContext(
   return docs;
 }
 
+/**
+ * 7.5 — Context Pruner: aggressively removes retrieved chunks that conflict
+ * with the user's specific scenario (company stage, complexity level).
+ * This runs BEFORE generation so the drafting agent never sees irrelevant chunks.
+ */
+async function pruneContext(
+  query: string,
+  docs: RetrievedDoc[],
+): Promise<RetrievedDoc[]> {
+  if (docs.length <= 2) return docs; // Nothing to prune
+
+  const model = getLLM();
+
+  const docList = docs
+    .map((d, i) => `[${i}] [Tier ${d.authority_tier}] "${d.title}" — ${d.text.slice(0, 250)}`)
+    .join('\n\n');
+
+  const { text } = await generateText({
+    model,
+    system: [
+      'You are a strict relevance filter for a legal memo drafting system.',
+      'Your sole job: given a user query and retrieved documents, return the indices of documents to KEEP.',
+      'DELETE (do not keep) any document that:',
+      '  1. Addresses a dramatically different company stage than the query implies (e.g., Fortune 500 M&A docs for a seed startup)',
+      '  2. Covers a jurisdiction irrelevant to the query',
+      '  3. Provides general background that adds no specific legal guidance for this exact scenario',
+      '  4. Conflicts directly with a higher-authority document on the same point without adding new legal nuance',
+      'ALWAYS keep Tier 1 (primary law) documents unless they are obviously off-topic.',
+      'Prefer keeping fewer, more targeted documents over a "kitchen sink" collection.',
+      'Respond ONLY with a JSON array of indices to KEEP, e.g. [0, 2, 4]. No markdown fences.',
+    ].join('\n'),
+    prompt: `User query: "${query}"\n\nDocuments:\n${docList}`,
+  });
+
+  try {
+    const keepIndices: number[] = JSON.parse(text);
+    if (Array.isArray(keepIndices) && keepIndices.length > 0) {
+      return keepIndices
+        .filter((i) => i >= 0 && i < docs.length)
+        .map((i) => docs[i]);
+    }
+  } catch { /* fall through */ }
+  return docs; // Fallback: keep all
+}
+
+/**
+ * Build a tiered context string with immutable tier blocks.
+ * The tier is read from the hardcoded `authority_tier` field — the LLM
+ * never evaluates or reassigns tiers; they flow directly from the database.
+ */
+function buildTieredContext(docs: RetrievedDoc[]): string {
+  const tier1 = docs.filter((d) => d.authority_tier === 1);
+  const tier2 = docs.filter((d) => d.authority_tier === 2);
+  const tier3 = docs.filter((d) => d.authority_tier === 3);
+
+  const fmt = (d: RetrievedDoc, i: number) => {
+    const urlNote = d.url ? ` | URL: ${d.url}` : '';
+    const dateNote = d.date ? ` | Published: ${d.date}` : '';
+    return `[Source ${i + 1}: ${d.title}] (${d.origin}${urlNote}${dateNote})\n${d.text}`;
+  };
+
+  const blocks: string[] = [];
+
+  if (tier1.length > 0) {
+    blocks.push(
+      '<TIER_1_PRIMARY_SOURCES — BINDING LAW>',
+      'These are statutes, regulations, and case law. Use exclusively to establish legal requirements.',
+      'Conflicts with Tier 2 or Tier 3 MUST be resolved in favour of Tier 1. You are forbidden from upgrading a Tier 2 or Tier 3 source to Tier 1 authority.',
+      '',
+      tier1.map(fmt).join('\n\n---\n\n'),
+      '</TIER_1_PRIMARY_SOURCES>',
+    );
+  }
+
+  if (tier2.length > 0) {
+    blocks.push(
+      '',
+      '<TIER_2_SECONDARY_SOURCES — AUTHORITATIVE GUIDANCE>',
+      'Use for market context, practical interpretation, and "in practice" observations only.',
+      'Never use alone to establish a binding legal requirement.',
+      '',
+      tier2.map((d, i) => fmt(d, tier1.length + i)).join('\n\n---\n\n'),
+      '</TIER_2_SECONDARY_SOURCES>',
+    );
+  }
+
+  if (tier3.length > 0) {
+    blocks.push(
+      '',
+      '<TIER_3_TERTIARY_SOURCES — BACKGROUND ONLY>',
+      'Use only for factual background. Never cite as legal authority. Flag explicitly when citing.',
+      '',
+      tier3.map((d, i) => fmt(d, tier1.length + tier2.length + i)).join('\n\n---\n\n'),
+      '</TIER_3_TERTIARY_SOURCES>',
+    );
+  }
+
+  return blocks.join('\n');
+}
+
+/**
+ * Validate citations in the generated answer: strip any [Source N] reference
+ * where N > number of available sources (programmatic hallucination guard).
+ * Returns the cleaned markdown text.
+ */
+function validateCitations(text: string, docCount: number): string {
+  return text.replace(/\[Source\s+(\d+)\]/gi, (_match, numStr: string) => {
+    const n = parseInt(numStr, 10);
+    if (n < 1 || n > docCount) {
+      // Hallucinated source — remove the citation marker entirely
+      return '';
+    }
+    return `[Source ${n}]`;
+  });
+}
+
 /** 8 — Self-RAG Generation: generate an initial answer grounded in the documents */
 async function selfRAGGenerate(
   query: string,
@@ -420,15 +535,8 @@ async function selfRAGGenerate(
 ): Promise<string> {
   const model = getLLM();
 
-  // Include authority tier, date, and URL so the model can weight sources correctly
-  const context = docs
-    .map((d, i) => {
-      const urlNote = d.url ? ` | URL: ${d.url}` : '';
-      const dateNote = d.date ? ` | Published: ${d.date}` : '';
-      const tierLabel = d.authority_tier === 1 ? 'PRIMARY LAW' : d.authority_tier === 2 ? 'SECONDARY' : 'TERTIARY';
-      return `[Source ${i + 1}: ${d.title}] [${tierLabel} — Tier ${d.authority_tier}] (${d.origin}${urlNote}${dateNote})\n${d.text}`;
-    })
-    .join('\n\n---\n\n');
+  // Tier blocks with immutable authority from the database — no LLM tier guessing
+  const context = buildTieredContext(docs);
 
   const { text } = await generateText({
     model,
@@ -552,15 +660,11 @@ async function selfRAGGenerate(
       '- Tier 3 citations must be explicitly flagged: "[Source N — tertiary source, verify independently]"',
       '',
       'APA FORMAT & STRUCTURE:',
-      '- Begin with a brief Abstract (2-3 sentences summarising the key legal issues and conclusions)',
+      '- Begin with a brief ## Summary (2-3 sentences summarising the key legal issues and conclusions)',
       '- Use ## and ### markdown headings; organise by issue (Risk → Fix), not by source',
       '- Include specific identifiers: statute numbers, CFR sections, case names with year, regulation titles',
       '- Every paragraph must have at least one [Source N] citation',
-      '- End with a ## References section in APA format:',
-      '  Statute example: Defend Trade Secrets Act, 18 U.S.C. § 1836 et seq. (2016).',
-      '  Case example: Bd. of Trustees of Leland Stanford Junior Univ. v. Roche Molecular Sys., Inc., 563 U.S. 776 (2011).',
-      '  Regulation example: Protection of Human Subjects, 45 C.F.R. § 46 (2018).',
-      '  Web source example: Author, A. A. (Year, Month Day). Title. Publisher. URL',
+      '- Do NOT include a References or Sources section — citations are hyperlinked automatically.',
       '- Final section: ## Disclaimer — informational only, not legal advice',
     ].join('\n'),
     prompt: `Query: "${query}"\n\nSource Documents:\n${context}`,
@@ -643,53 +747,114 @@ async function groundCitations(
   return text;
 }
 
-/** 11 — Critic Review: a "senior partner" evaluates the draft for commercial realism and over-lawyering */
-async function criticReview(
+type CriticResult = { needsRevision: boolean; errorCodes: string[]; feedback: string[] };
+
+/**
+ * 11a — Critic A (The Commercial Pragmatist):
+ * Exclusively checks for over-engineering, kitchen-sink inclusiveness, and
+ * market-standard deviations. Knows nothing about regulatory compliance.
+ */
+async function pragmatistCritic(
   query: string,
   answer: string,
-): Promise<{ needsRevision: boolean; feedback: string[]; severity: string }> {
+): Promise<CriticResult> {
   const model = getLLM();
 
   const { text } = await generateText({
     model,
     system: [
-      'You are a senior partner at a top-tier law firm reviewing a junior associate\'s draft memo.',
-      'Your job is to identify critical problems — not style preferences — before the memo goes to the client.',
-      'Check for:',
-      '1. HALLUCINATION: Legal claims, agency names, statutes, or cases not grounded in retrieved sources.',
-      '2. SOURCE CONFLATION: Mixing regulatory compliance obligations (what regulators require) with commercial terms (what parties negotiate).',
-      '3. COMMERCIAL NAIVETY: Technically correct advice that is commercially absurd for the context (e.g., applying Fortune 500 M&A protections to a 2-person startup).',
-      '4. OVER-LAWYERING: Recommending unnecessary complexity, redundant protections, or disproportionate risk aversion.',
-      '5. REGULATORY ATTRIBUTION ERROR: Attributing regulatory enforcement powers to a wrong agency, or citing an agency for a power it does not have.',
-      '6. TEMPORAL STALENESS: Presenting outdated law as current without noting potential changes.',
+      'You are a commercially-minded senior partner reviewing a junior associate\'s draft memo.',
+      'Your ONLY job: catch over-engineering and commercial naivety. Ignore all other issues.',
+      'Flag these specific failure modes — ONLY these:',
+      '  PRAGMATISM_FAILURE: Recommending enterprise-grade protections (full indemnity stack, dual-trigger acceleration, etc.) in a context where market standard is a simple, lightweight approach.',
+      '  KITCHEN_SINK: Including clauses or protections that are academically valid but commercially unusual for this scenario — essentially drafting a Fortune 500 agreement for a startup.',
+      '  STAGE_MISMATCH: Advice calibrated for a different company stage than the query implies (e.g., Series C-level structuring advice for a pre-seed founder).',
+      '  COMPLEXITY_OVERKILL: Recommending a multi-step, multi-agent process where a single paragraph clause would suffice.',
       '',
-      'DO NOT flag stylistic issues, missing citations (handled elsewhere), or formatting preferences.',
-      'Only flag issues that would make a sophisticated client distrust the advice or take wrong action.',
+      'DO NOT flag: citation issues, regulatory accuracy, formatting, or legal correctness. Those are handled elsewhere.',
+      'Only flag what a venture-backed startup founder or commercial GC would consider tone-deaf or impractical.',
       '',
       'Respond ONLY with JSON (no markdown fences):',
-      '{ "needsRevision": boolean, "severity": "critical" | "minor" | "none", "feedback": ["specific issue 1", ...] }',
-      'Set needsRevision=true and severity="critical" ONLY for issues 1-5 above that would materially mislead the client.',
+      '{ "needsRevision": boolean, "errorCodes": ["PRAGMATISM_FAILURE"|"KITCHEN_SINK"|"STAGE_MISMATCH"|"COMPLEXITY_OVERKILL"], "feedback": ["specific section + fix"] }',
+      'Set needsRevision=true only when the advice would cause a reasonable founder to distrust it as out-of-touch.',
     ].join('\n'),
-    prompt: `Client Query: "${query}"\n\nDraft Memo:\n${answer.slice(0, 4000)}`, // Limit to avoid token overflow
+    prompt: `Client Query: "${query}"\n\nDraft:\n${answer.slice(0, 3500)}`,
   });
 
   try {
-    const parsed = JSON.parse(text);
+    const p = JSON.parse(text);
     return {
-      needsRevision: Boolean(parsed.needsRevision) && parsed.severity === 'critical',
-      feedback: Array.isArray(parsed.feedback) ? parsed.feedback : [],
-      severity: parsed.severity ?? 'none',
+      needsRevision: Boolean(p.needsRevision),
+      errorCodes: Array.isArray(p.errorCodes) ? p.errorCodes : [],
+      feedback: Array.isArray(p.feedback) ? p.feedback : [],
     };
   } catch {
-    return { needsRevision: false, feedback: [], severity: 'none' };
+    return { needsRevision: false, errorCodes: [], feedback: [] };
   }
 }
 
-/** 12 — Revision: rewrite the answer incorporating the critic's feedback */
-async function applyRevision(
+/**
+ * 11b — Critic B (The Compliance Officer):
+ * Exclusively checks regulatory attribution accuracy and liability constraints.
+ * Knows nothing about commercial pragmatism.
+ */
+async function complianceCritic(
   query: string,
   answer: string,
-  feedback: string[],
+  docs: RetrievedDoc[],
+): Promise<CriticResult> {
+  const model = getLLM();
+
+  const tier1Sources = docs
+    .filter((d) => d.authority_tier === 1)
+    .map((d, i) => `[Source ${i + 1}] ${d.title}`)
+    .join('\n');
+
+  const { text } = await generateText({
+    model,
+    system: [
+      'You are a regulatory compliance officer reviewing a legal memo strictly for accuracy.',
+      'Your ONLY job: catch regulatory attribution errors and compliance inaccuracies. Ignore commercial advice and formatting.',
+      'Flag these specific failure modes — ONLY these:',
+      '  AGENCY_ATTRIBUTION_ERROR: A regulatory enforcement power or obligation is attributed to the wrong agency (e.g., claiming the FTC enforces HIPAA, or that the SEC regulates employment contracts).',
+      '  SOURCE_CONFLATION: A commercial negotiation norm is presented as if it were a regulatory compliance requirement (e.g., "indemnification is required by GDPR").',
+      '  COMPLIANCE_SCOPE_ERROR: A regulation\'s scope is overstated or understated (e.g., claiming CCPA applies to B2B companies with no California consumers).',
+      '  REGULATORY_UPGRADE: A Tier 2 or Tier 3 source is being used to assert a binding legal requirement that should only come from a Tier 1 source.',
+      '',
+      'DO NOT flag: commercial advice quality, over-engineering, formatting, or citation style.',
+      '',
+      'Respond ONLY with JSON (no markdown fences):',
+      '{ "needsRevision": boolean, "errorCodes": ["AGENCY_ATTRIBUTION_ERROR"|"SOURCE_CONFLATION"|"COMPLIANCE_SCOPE_ERROR"|"REGULATORY_UPGRADE"], "feedback": ["specific claim + correction"] }',
+      'Set needsRevision=true only for errors that would expose the client to real legal or compliance risk.',
+    ].join('\n'),
+    prompt: [
+      `Client Query: "${query}"`,
+      `\nTier 1 (Binding) Sources:\n${tier1Sources || 'None'}`,
+      `\nDraft:\n${answer.slice(0, 3500)}`,
+    ].join('\n'),
+  });
+
+  try {
+    const p = JSON.parse(text);
+    return {
+      needsRevision: Boolean(p.needsRevision),
+      errorCodes: Array.isArray(p.errorCodes) ? p.errorCodes : [],
+      feedback: Array.isArray(p.feedback) ? p.feedback : [],
+    };
+  } catch {
+    return { needsRevision: false, errorCodes: [], feedback: [] };
+  }
+}
+
+/**
+ * 12 — Dual Revision: incorporates feedback from both critics in one targeted rewrite.
+ * Only triggered when at least one critic flags a critical issue.
+ */
+async function applyDualRevision(
+  query: string,
+  answer: string,
+  pragmatistResult: CriticResult,
+  complianceResult: CriticResult,
   docs: RetrievedDoc[],
 ): Promise<string> {
   const model = getLLM();
@@ -697,27 +862,32 @@ async function applyRevision(
   const sourceIndex = docs
     .map((d, i) => {
       const tier = d.authority_tier === 1 ? 'PRIMARY LAW' : d.authority_tier === 2 ? 'SECONDARY' : 'TERTIARY';
-      return `[Source ${i + 1}] [Tier ${d.authority_tier} — ${tier}] ${d.title}${d.url ? ` — ${d.url}` : ''}`;
+      return `[Source ${i + 1}] [Tier ${d.authority_tier} — ${tier}] ${d.title}`;
     })
     .join('\n');
+
+  const allFeedback = [
+    ...pragmatistResult.feedback.map((f) => `[COMMERCIAL] ${f}`),
+    ...complianceResult.feedback.map((f) => `[COMPLIANCE] ${f}`),
+  ];
 
   const { text } = await generateText({
     model,
     system: [
-      'You are a senior corporate attorney revising a draft memo based on peer review feedback.',
-      'Make only the changes necessary to address the identified issues. Preserve all accurate content.',
-      'Rules:',
-      '- Do NOT introduce new claims not supported by the available sources.',
-      '- Do NOT remove accurate, well-cited content.',
-      '- If a claim is flagged as hallucination, remove it or add: "Note: [Source] not found in retrieved documents — verify independently."',
-      '- If commercial naivety is flagged, add appropriate context about company stage or practical trade-offs.',
-      '- Preserve [Source N] citation markers. Do NOT write raw URLs.',
-      '- Preserve APA format structure (Abstract, headings, References, Disclaimer).',
+      'You are a senior attorney making targeted revisions to a draft memo.',
+      'You have received two types of peer review: commercial pragmatism issues and compliance accuracy issues.',
+      'Rules — strictly enforce:',
+      '  [COMMERCIAL] feedback: Remove or simplify over-engineered clauses; calibrate advice to the user\'s actual company stage; cut "kitchen sink" inclusions.',
+      '  [COMPLIANCE] feedback: Correct wrong agency attributions; remove claims that conflate commercial norms with regulatory requirements; fix compliance scope errors.',
+      '  Preserve ALL accurate, well-cited content that was not flagged.',
+      '  Do NOT introduce new claims not in the source documents.',
+      '  Preserve all valid [Source N] citation markers.',
+      '  Preserve APA format: Summary → sections → Disclaimer.',
     ].join('\n'),
     prompt: [
       `Query: "${query}"`,
-      `\nCritic Feedback:\n${feedback.map((f, i) => `${i + 1}. ${f}`).join('\n')}`,
-      `\nAvailable Sources:\n${sourceIndex}`,
+      `\nRevision Instructions:\n${allFeedback.map((f, i) => `${i + 1}. ${f}`).join('\n')}`,
+      `\nSources:\n${sourceIndex}`,
       `\nOriginal Draft:\n${answer}`,
     ].join('\n'),
   });
@@ -873,70 +1043,73 @@ export const legalSearch = ({
       s('Refinement', 'Compressing context');
       const compressed = await compressContext(query, topDocs);
 
+      // ── Phase 4.5: Context Pruning ────────────────────────────────────
+      s('Refinement', 'Pruning irrelevant chunks (scenario alignment)');
+      const pruned = await pruneContext(query, compressed);
+      const prunedCount = compressed.length - pruned.length;
+      if (prunedCount > 0) {
+        s('Refinement', `Pruned ${prunedCount} off-scenario chunk(s)`);
+      }
+
       // ── Phase 5: Analysis ────────────────────────────────────────────
-      s('Analysis', 'Generating legal analysis (Self-RAG)');
-      const initialAnswer = await selfRAGGenerate(query, compressed);
+      s('Analysis', 'Generating legal analysis (Self-RAG + tiered context)');
+      const initialAnswer = await selfRAGGenerate(query, pruned);
+
+      // Programmatic citation validation: strip any [Source N] where N > doc count
+      const citationValidated = validateCitations(initialAnswer, pruned.length);
 
       s('Analysis', 'Verifying groundedness');
-      const reflection = await selfRAGReflect(query, initialAnswer, compressed);
+      const reflection = await selfRAGReflect(query, citationValidated, pruned);
 
       if (!reflection.isGrounded) {
         s('Analysis', 'Correcting ungrounded claims');
       }
 
       s('Analysis', 'Grounding citations');
-      const groundedAnswer = await groundCitations(initialAnswer, compressed, reflection);
+      const groundedAnswer = await groundCitations(citationValidated, pruned, reflection);
 
-      // ── Phase 6: Critic Review ───────────────────────────────────────
-      s('Review', 'Senior partner review (commercial realism check)');
-      const critique = await criticReview(query, groundedAnswer);
+      // ── Phase 6: Dual Critic Review ──────────────────────────────────
+      s('Review', 'Critic A — Commercial Pragmatist');
+      s('Review', 'Critic B — Compliance Officer');
+      const [pragResult, compResult] = await Promise.all([
+        pragmatistCritic(query, groundedAnswer),
+        complianceCritic(query, groundedAnswer, pruned),
+      ]);
+
+      const pragCodes = pragResult.errorCodes.join(', ') || 'none';
+      const compCodes = compResult.errorCodes.join(', ') || 'none';
+      s('Review', `Pragmatist: ${pragResult.needsRevision ? `⚠ ${pragCodes}` : 'Passed ✓'}`);
+      s('Review', `Compliance: ${compResult.needsRevision ? `⚠ ${compCodes}` : 'Passed ✓'}`);
 
       let finalAnswer = groundedAnswer;
-      if (critique.needsRevision) {
-        s('Review', `Revising: ${critique.feedback.length} critical issue(s) flagged`);
-        finalAnswer = await applyRevision(query, groundedAnswer, critique.feedback, compressed);
-      } else {
-        s('Review', critique.severity === 'none' ? 'Review passed ✓' : `Minor notes (non-blocking)`);
+      if (pragResult.needsRevision || compResult.needsRevision) {
+        const totalIssues = pragResult.feedback.length + compResult.feedback.length;
+        s('Review', `Revising: ${totalIssues} issue(s) flagged across both critics`);
+        finalAnswer = await applyDualRevision(query, groundedAnswer, pragResult, compResult, pruned);
       }
 
-      // Post-process step A: convert [Source N] markers to RAG-sourced hyperlinks
+      // Post-process step A: convert [Source N] markers to APA-style citations
       s('Analysis', 'Linking citations to sources');
-      const ragLinkedAnswer = postProcessCitations(finalAnswer, compressed as CitableSource[]);
+      const apaLinkedAnswer = postProcessToAPA(finalAnswer, pruned as CitableSource[]);
 
       // Post-process step B: auto-link any remaining unlinked legal concepts
-      const linkedAnswer = injectLegalConceptLinks(ragLinkedAnswer);
+      const linkedAnswer = injectLegalConceptLinks(apaLinkedAnswer);
 
       s('Analysis', 'Compiling final output');
 
-      const sourceList = formatMarkdownSourceList(compressed as CitableSource[]);
+      const docId = generateUUID();
+      const docTitle = await deriveDocumentTitle(query);
 
       const output = [
-        '## Legal Analysis',
+        `# ${docTitle}`,
         '',
         linkedAnswer,
-        '',
-        '## Sources',
-        '',
-        sourceList,
-        '',
-        '## Research Pipeline Summary',
-        `- Queries expanded: ${expandedQueries.length}`,
-        `- Documents retrieved: ${kbDocs.length + filteredByDate} → ${kbDocs.length} after temporal filter (cutoff: ${cutoffYear})`,
-        `- Knowledge base: ${kbDocs.length} docs | Web research: ${webDocs.length} docs`,
-        `- Authority tiers: ${tier1Count} primary law, ${tier2Count} secondary, ${tier3Count} tertiary`,
-        `- CRAG filtered: ${droppedCount} irrelevant document(s) removed`,
-        `- Documents after reranking: ${topDocs.length}`,
-        `- Self-RAG: ${reflection.isGrounded ? 'All claims grounded ✓' : `${reflection.hallucinations.length} issue(s) corrected`}`,
-        `- Critic review: ${critique.needsRevision ? `Revised (${critique.feedback.length} issue(s))` : critique.severity === 'none' ? 'Passed ✓' : 'Minor notes'}`,
       ].join('\n');
 
       // ── Create the document directly — bypasses the model needing to call
       // createDocument as a second tool call (which Mistral/DeepSeek often
       // output as text instead of an actual function invocation).
       s('Analysis', 'Creating document');
-
-      const docId = generateUUID();
-      const docTitle = await deriveDocumentTitle(query);
 
       // Write the same dataStream events that createDocument tool sends
       ds.writeData({ type: 'kind', content: 'text' });

@@ -78,6 +78,50 @@ export function postProcessCitations(
 }
 
 /**
+ * Post-processes AI-generated text by replacing [Source N] citation markers
+ * with APA-style inline citations: ([Title](url), Year).
+ *
+ * Deterministic: URL and date come from DB metadata — the model never generates
+ * URLs, so hallucinated links are impossible.
+ */
+export function postProcessToAPA(
+  text: string,
+  sources: CitableSource[],
+): string {
+  return text.replace(/\[Source\s+(\d+)\]/gi, (_match, numStr: string) => {
+    const n = parseInt(numStr, 10);
+    const idx = n - 1;
+
+    if (idx < 0 || idx >= sources.length) return '';
+
+    const doc = sources[idx];
+    const url = resolveSourceUrl(doc);
+
+    // Extract year from date metadata
+    let year = '';
+    if (doc.date) {
+      const parsedYear = new Date(doc.date).getFullYear();
+      if (!Number.isNaN(parsedYear) && parsedYear > 1900) {
+        year = String(parsedYear);
+      }
+    }
+
+    // Truncate very long titles for readability
+    const title = doc.title.length > 60
+      ? `${doc.title.slice(0, 57)}...`
+      : doc.title;
+
+    const yearPart = year ? `, ${year}` : '';
+
+    if (url) {
+      return `([${title}](${url})${yearPart})`;
+    }
+
+    return `(${title}${yearPart})`;
+  });
+}
+
+/**
  * Formats the complete sources section as rich markdown with hyperlinked titles,
  * metadata, relevance scores, and brief excerpts from the retrieved text.
  */
