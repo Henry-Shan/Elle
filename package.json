@@ -17,6 +17,7 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "db:ingest": "npx tsx scripts/ingest-all.ts",
+    "db:seed": "python3 scripts/seed_legal_concepts.py",
     "chroma": "chroma run --host localhost --port 8000",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test --workers=4"
   },

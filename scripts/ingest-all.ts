@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { execSync } from 'node:child_process';
 import { ingestECFR } from './ingest-ecfr';
 import { ingestFederalRegister } from './ingest-federal-register';
 import { getOrCreateCollection, LEGAL_COLLECTION } from '../lib/rag/chroma';
@@ -9,8 +10,17 @@ async function ingestAll() {
   console.log('========================================\n');
 
   const startTime = Date.now();
+  let seedCount = 0;
   let ecfrCount = 0;
   let frCount = 0;
+
+  // 0. Foundational legal concepts (Python script — native chromadb client)
+  try {
+    execSync('python3 scripts/seed_legal_concepts.py', { stdio: 'inherit' });
+    seedCount = -1; // count shown by Python script directly
+  } catch (error) {
+    console.error('Seed ingestion failed:', error);
+  }
 
   // 1. eCFR Federal Regulations
   try {
@@ -36,6 +46,7 @@ async function ingestAll() {
     console.log('\n========================================');
     console.log('  Ingestion Summary');
     console.log('========================================');
+    console.log(`  Seed concepts chunks:     ${seedCount}`);
     console.log(`  eCFR chunks:              ${ecfrCount}`);
     console.log(`  Federal Register chunks:  ${frCount}`);
     console.log(`  Total in collection:      ${count}`);
@@ -45,6 +56,7 @@ async function ingestAll() {
     console.log('\n========================================');
     console.log('  Ingestion Summary');
     console.log('========================================');
+    console.log(`  Seed concepts chunks:     ${seedCount}`);
     console.log(`  eCFR chunks:              ${ecfrCount}`);
     console.log(`  Federal Register chunks:  ${frCount}`);
     console.log(`  Time elapsed:             ${elapsed}s`);

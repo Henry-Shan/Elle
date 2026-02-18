@@ -88,6 +88,7 @@ export function DataStreamHandler({ id }: { id: string }) {
             return {
               ...draftArtifact,
               kind: delta.content as ArtifactKind,
+              isVisible: true,
               status: 'streaming',
             };
 

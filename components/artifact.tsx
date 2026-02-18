@@ -322,7 +322,7 @@ function PureArtifact({
                 )}
               </AnimatePresence>
 
-              <div className="flex flex-col h-full justify-between items-center gap-4">
+              <div className="relative flex flex-col h-full">
                 <ArtifactMessages
                   chatId={chatId}
                   isLoading={isLoading}
@@ -334,22 +334,24 @@ function PureArtifact({
                   artifactStatus={artifact.status}
                 />
 
-                <form className="flex flex-row gap-2 relative items-end w-full px-4 pb-4">
-                  <MultimodalInput
-                    chatId={chatId}
-                    input={input}
-                    setInput={setInput}
-                    handleSubmit={handleSubmit}
-                    isLoading={isLoading}
-                    stop={stop}
-                    attachments={attachments}
-                    setAttachments={setAttachments}
-                    messages={messages}
-                    append={append}
-                    className="bg-background dark:bg-muted"
-                    setMessages={setMessages}
-                  />
-                </form>
+                <div className="absolute bottom-0 left-0 right-0 px-4 pb-4 pt-8 bg-gradient-to-t from-muted dark:from-background to-transparent">
+                  <form className="flex flex-row gap-2 items-end w-full">
+                    <MultimodalInput
+                      chatId={chatId}
+                      input={input}
+                      setInput={setInput}
+                      handleSubmit={handleSubmit}
+                      isLoading={isLoading}
+                      stop={stop}
+                      attachments={attachments}
+                      setAttachments={setAttachments}
+                      messages={messages}
+                      append={append}
+                      className="bg-background dark:bg-muted"
+                      setMessages={setMessages}
+                    />
+                  </form>
+                </div>
               </div>
             </motion.div>
           )}
