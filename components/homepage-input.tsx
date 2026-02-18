@@ -86,31 +86,23 @@ export default function HomepageInput() {
     adjustHeight();
   }, [input, attachments, uploadQueue, adjustHeight]);
 
-  const uploadFile = async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    try {
-      const response = await fetch("/api/files/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const { url, pathname, contentType } = data;
-
-        return {
-          url,
-          name: pathname,
-          contentType: contentType,
-        };
-      }
-      const { error } = await response.json();
-      toast.error(error);
-    } catch (error) {
-      toast.error("Failed to upload file, please try again!");
-    }
+  const uploadFile = async (file: File): Promise<Attachment | undefined> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const dataUrl = e.target?.result as string;
+        resolve({
+          url: dataUrl,
+          name: file.name,
+          contentType: file.type || "application/octet-stream",
+        });
+      };
+      reader.onerror = () => {
+        toast.error("Failed to read file, please try again!");
+        resolve(undefined);
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   const handleFileChange = useCallback(

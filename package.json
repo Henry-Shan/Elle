@@ -17,6 +17,7 @@
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
     "db:ingest": "npx tsx scripts/ingest-all.ts",
+    "chroma": "chroma run --host localhost --port 8000",
     "test": "export PLAYWRIGHT=True && pnpm exec playwright test --workers=4"
   },
   "dependencies": {
