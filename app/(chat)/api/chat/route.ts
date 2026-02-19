@@ -292,17 +292,16 @@ export async function POST(request: Request) {
       });
     }
 
-    // Strip reasoning parts from assistant messages to avoid DeepSeek
-    // "Missing reasoning_content" errors on follow-up turns.
-    // The model regenerates reasoning each turn, so history doesn't need it.
+    // Strip reasoning parts from assistant messages — the model regenerates
+    // reasoning each turn so history doesn't need it. The provider-level
+    // deepseekReasoningFixMiddleware injects reasoning_content: null via
+    // providerMetadata to satisfy DeepSeek's API requirement.
     finalMessages = finalMessages.map((msg) => {
       if (msg.role !== "assistant") return msg;
-      // Remove the top-level reasoning field
       const { reasoning, ...rest } = msg as any;
-      // Also strip reasoning parts from content arrays
       if (Array.isArray(rest.content)) {
         rest.content = rest.content.filter(
-          (part: any) => part.type !== "reasoning"
+          (part: any) => part.type !== "reasoning",
         );
       }
       return rest;
@@ -318,10 +317,6 @@ export async function POST(request: Request) {
           session,
           saveMessages,
         });
-
-        console.log("result from route", result);
-        console.log("result type from route", typeof result.consumeStream());
-        result.consumeStream();
 
         result.mergeIntoDataStream(dataStream, {
           sendReasoning: true,

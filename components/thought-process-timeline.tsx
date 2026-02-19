@@ -30,13 +30,17 @@ export function ThoughtProcessTimeline({
 
   const { phases, isActive: pipelineActive } = useGenerationStatus();
 
-  // Split steps: legalSearch grouped, others individual
+  // Split steps: reasoning first, legalSearch grouped, others individual
+  const reasoningSteps = useMemo(
+    () => steps.filter((s) => s.type === 'reasoning'),
+    [steps],
+  );
   const legalSearchSteps = useMemo(
     () => steps.filter((s) => s.toolName === 'legalSearch'),
     [steps],
   );
   const otherSteps = useMemo(
-    () => steps.filter((s) => s.toolName !== 'legalSearch'),
+    () => steps.filter((s) => s.type !== 'reasoning' && s.toolName !== 'legalSearch'),
     [steps],
   );
 
@@ -138,6 +142,22 @@ export function ThoughtProcessTimeline({
 
   return (
     <div className="flex flex-col">
+      {/* Reasoning — always first, stuck to the top */}
+      {reasoningSteps.length > 0 && (
+        <AnimatePresence>
+          {reasoningSteps.map((step) => (
+            <motion.div
+              key={step.id}
+              initial={skipAnimations ? false : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <TimelineStepItem step={step} isReadonly={isReadonly} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      )}
+
       {/* While generating response: single collapsed summary */}
       {showSummary && (
         <motion.div

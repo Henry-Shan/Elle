@@ -150,16 +150,15 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
       description: 'Export as PDF',
       onClick: ({ content }) => {
         const html = marked.parse(content) as string;
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-          toast.error('Please allow pop-ups to export PDF.');
-          return;
-        }
-        printWindow.document.write(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Legal Document</title>
+        // Extract title from the first H1 heading in the markdown content
+        const titleMatch = content.match(/^#\s+(.+)$/m);
+        const docTitle = titleMatch ? titleMatch[1].trim() : 'Legal Document';
+
+        const fullHtml = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${docTitle}</title>
 <style>
   @page { margin: 1in; }
-  body { font-family: Georgia, "Times New Roman", serif; font-size: 12pt; line-height: 1.8; color: #1a1a1a; max-width: 100%; }
+  body { font-family: Georgia, "Times New Roman", serif; font-size: 12pt; line-height: 1.8; color: #1a1a1a; max-width: 100%; padding: 0 1in; }
   h1 { font-size: 1.6em; font-weight: 700; border-bottom: 1px solid #ccc; padding-bottom: 0.4rem; margin-top: 1.5em; }
   h2 { font-size: 1.3em; font-weight: 700; color: #2563eb; margin-top: 1.5em; }
   h3 { font-size: 1.1em; font-weight: 600; margin-top: 1.2em; }
@@ -170,11 +169,22 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
   tr:nth-child(even) td { background: #f9fafb; }
   h1, h2, h3 { page-break-after: avoid; }
   a { color: #2563eb; text-decoration: underline; }
-  @media print { body { margin: 0; } }
+  @media print { body { padding: 0; margin: 0; } }
 </style>
-</head><body>${html}</body></html>`);
-        printWindow.document.close();
-        printWindow.onload = () => { printWindow.print(); };
+</head><body>${html}</body></html>`;
+
+        const blob = new Blob([fullHtml], { type: 'text/html' });
+        const blobUrl = URL.createObjectURL(blob);
+        const printWindow = window.open(blobUrl, '_blank');
+        if (!printWindow) {
+          URL.revokeObjectURL(blobUrl);
+          toast.error('Please allow pop-ups to export PDF.');
+          return;
+        }
+        printWindow.onload = () => {
+          printWindow.print();
+          URL.revokeObjectURL(blobUrl);
+        };
       },
     },
   ],
