@@ -29,7 +29,7 @@ const components: Partial<Components> = {
   },
   ul: ({ node, children, ...props }) => {
     return (
-      <ul className="list-decimal list-outside ml-4" {...props}>
+      <ul className="list-disc list-outside ml-4" {...props}>
         {children}
       </ul>
     );
@@ -94,6 +94,52 @@ const components: Partial<Components> = {
       <h6 className="text-sm font-semibold mt-6 mb-2" {...props}>
         {children}
       </h6>
+    );
+  },
+  blockquote: ({ node, children, ...props }) => {
+    return (
+      <blockquote
+        className="border-l-[3px] border-blue-500 bg-blue-500/[0.06] dark:bg-blue-500/10 pl-4 pr-3 py-3 my-4 rounded-r-md italic"
+        {...props}
+      >
+        {children}
+      </blockquote>
+    );
+  },
+  table: ({ node, children, ...props }) => {
+    return (
+      <div className="overflow-x-auto my-4">
+        <table className="w-full border-collapse" {...props}>
+          {children}
+        </table>
+      </div>
+    );
+  },
+  thead: ({ node, children, ...props }) => {
+    return <thead {...props}>{children}</thead>;
+  },
+  tr: ({ node, children, ...props }) => {
+    return (
+      <tr className="even:bg-muted/50" {...props}>
+        {children}
+      </tr>
+    );
+  },
+  th: ({ node, children, ...props }) => {
+    return (
+      <th
+        className="bg-muted font-semibold border border-border px-3 py-2 text-left"
+        {...props}
+      >
+        {children}
+      </th>
+    );
+  },
+  td: ({ node, children, ...props }) => {
+    return (
+      <td className="border border-border px-3 py-2" {...props}>
+        {children}
+      </td>
     );
   },
 };

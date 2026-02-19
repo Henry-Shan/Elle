@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { getOrCreateCollection, LEGAL_COLLECTION } from '../lib/rag/chroma';
 import { embedTexts } from '../lib/rag/embeddings';
-import { chunkText } from '../lib/rag/chunker';
+import { chunkLegalText } from '../lib/rag/chunker';
 
 // CFR titles mapped to industry verticals
 const CFR_MAPPINGS: {
@@ -207,6 +207,12 @@ async function ingestECFR() {
           const documents: string[] = [];
 
           for (const result of data.results) {
+            // Skip obsolete regulations (ends_on is set and in the past)
+            if (result.ends_on) {
+              const endsDate = new Date(result.ends_on);
+              if (endsDate < new Date()) continue;
+            }
+
             const sectionTitle = [
               result.headings?.title,
               result.headings?.part,
@@ -231,9 +237,12 @@ async function ingestECFR() {
               cfr_title: String(mapping.title),
               date: result.starts_on || new Date().toISOString().split('T')[0],
               url: `https://www.ecfr.gov/current/title-${mapping.title}`,
+              authority_tier: '1',
+              market_standard_from: result.starts_on || '',
+              deprecated_on: result.ends_on || '',
             };
 
-            const chunks = chunkText(text, baseMetadata);
+            const chunks = chunkLegalText(text, baseMetadata);
 
             for (const chunk of chunks) {
               const id = `ecfr-t${mapping.title}-${searchTerm.replace(/\s+/g, '_')}-p${page}-${ids.length}`;

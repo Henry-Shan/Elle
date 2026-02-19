@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import { getOrCreateCollection, LEGAL_COLLECTION } from '../lib/rag/chroma';
 import { embedTexts } from '../lib/rag/embeddings';
-import { chunkText } from '../lib/rag/chunker';
+import { chunkLegalText } from '../lib/rag/chunker';
 
 // Agency slugs mapped to industry verticals
 const AGENCY_MAPPINGS: {
@@ -181,6 +181,10 @@ async function ingestFederalRegister() {
                   ? 'notice'
                   : 'guidance';
 
+          // Tier 1 for Rule/Proposed Rule, Tier 2 for Notice/Guidance
+          const authorityTier =
+            doc.type === 'Rule' || doc.type === 'Proposed Rule' ? '1' : '2';
+
           const baseMetadata: Record<string, string> = {
             source: 'federal_register',
             title: doc.title || `${agency.name} Document`,
@@ -192,9 +196,12 @@ async function ingestFederalRegister() {
             url: doc.html_url || 'https://www.federalregister.gov',
             agency: agency.name,
             document_number: doc.document_number || '',
+            authority_tier: authorityTier,
+            market_standard_from: doc.publication_date || '',
+            deprecated_on: '',
           };
 
-          const chunks = chunkText(text, baseMetadata);
+          const chunks = chunkLegalText(text, baseMetadata);
 
           for (const chunk of chunks) {
             const id = `fr-${agency.slug}-${doc.document_number || page}-${ids.length}`;

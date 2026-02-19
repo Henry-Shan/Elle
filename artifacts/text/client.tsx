@@ -5,7 +5,7 @@ import { Editor } from '@/components/text-editor';
 import {
   ClockRewind,
   CopyIcon,
-  GoogleDocsIcon,
+  DownloadIcon,
   MessageIcon,
   PenIcon,
   RedoIcon,
@@ -13,7 +13,7 @@ import {
 } from '@/components/icons';
 import type { Suggestion } from '@/lib/db/schema';
 import { toast } from 'sonner';
-import { signIn } from 'next-auth/react';
+import { marked } from 'marked';
 import { getSuggestions } from '../actions';
 
 interface TextArtifactMetadata {
@@ -77,7 +77,7 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
 
     return (
       <>
-        <div className="flex flex-row py-8 md:p-20 px-4">
+        <div className="flex flex-row py-8 md:py-12 md:px-16 px-6">
           <Editor
             content={content}
             suggestions={metadata ? metadata.suggestions : []}
@@ -146,39 +146,35 @@ export const textArtifact = new Artifact<'text', TextArtifactMetadata>({
       },
     },
     {
-      icon: <GoogleDocsIcon size={18} />,
-      description: 'Open in Google Docs',
-      onClick: async ({ documentId }) => {
-        const toastId = toast.loading('Exporting to Google Docs…');
-        try {
-          const res = await fetch('/api/export/google-docs', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ documentId }),
-          });
-
-          const data = await res.json();
-
-          if (!res.ok) {
-            if (data.error === 'google_auth_required' || data.error === 'token_expired') {
-              // Use NextAuth's signIn() — this is the correct v5 API and reuses
-              // the already-registered /api/auth/callback/google redirect URI.
-              // After Google redirects back the user can click the button again.
-              toast.dismiss(toastId);
-              signIn('google', { callbackUrl: window.location.href });
-              return;
-            }
-            toast.error(data.message ?? 'Export failed.', { id: toastId });
-            return;
-          }
-
-          toast.success('Opened in Google Docs!', { id: toastId });
-          window.open(data.url, '_blank', 'noreferrer,noopener');
-        } catch {
-          toast.error('Could not connect to the server. Please try again.', {
-            id: toastId,
-          });
+      icon: <DownloadIcon size={18} />,
+      description: 'Export as PDF',
+      onClick: ({ content }) => {
+        const html = marked.parse(content) as string;
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+          toast.error('Please allow pop-ups to export PDF.');
+          return;
         }
+        printWindow.document.write(`<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Legal Document</title>
+<style>
+  @page { margin: 1in; }
+  body { font-family: Georgia, "Times New Roman", serif; font-size: 12pt; line-height: 1.8; color: #1a1a1a; max-width: 100%; }
+  h1 { font-size: 1.6em; font-weight: 700; border-bottom: 1px solid #ccc; padding-bottom: 0.4rem; margin-top: 1.5em; }
+  h2 { font-size: 1.3em; font-weight: 700; color: #2563eb; margin-top: 1.5em; }
+  h3 { font-size: 1.1em; font-weight: 600; margin-top: 1.2em; }
+  blockquote { border-left: 3px solid #2563eb; background: #eff6ff; padding: 0.6rem 1rem; margin: 1rem 0; font-family: monospace; font-size: 0.9em; border-radius: 0 4px 4px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; page-break-inside: avoid; }
+  th { background: #f3f4f6; font-weight: 600; border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; text-align: left; }
+  td { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; }
+  tr:nth-child(even) td { background: #f9fafb; }
+  h1, h2, h3 { page-break-after: avoid; }
+  a { color: #2563eb; text-decoration: underline; }
+  @media print { body { margin: 0; } }
+</style>
+</head><body>${html}</body></html>`);
+        printWindow.document.close();
+        printWindow.onload = () => { printWindow.print(); };
       },
     },
   ],

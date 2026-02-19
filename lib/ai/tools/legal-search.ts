@@ -8,8 +8,10 @@ import { mistral } from '@ai-sdk/mistral';
 import {
   postProcessToAPA,
   injectLegalConceptLinks,
+  extractAndValidateCitations,
   type CitableSource,
 } from '@/lib/rag/citation-utils';
+import { deriveAuthorityTier } from '@/lib/rag/chunker';
 import { generateUUID } from '@/lib/utils';
 import { saveDocument } from '@/lib/db/queries';
 
@@ -43,63 +45,8 @@ interface RetrievedDoc {
 }
 
 // ---------------------------------------------------------------------------
-// Authority & Temporal Helpers
+// Temporal Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Derives an authority tier from document metadata.
- *
- * Tier 1 (Primary): Statutes, regulations, case law, official government guidance.
- *   These are the authoritative sources that define legal mechanics.
- * Tier 2 (Secondary): Law firm advisories, whitepapers, verified industry standards.
- *   Useful for market context and practical interpretation.
- * Tier 3 (Tertiary): News articles, blogs, unclassified web content.
- *   Only used for background colour; never used to establish legal requirements.
- */
-function deriveAuthorityTier(doc: Omit<RetrievedDoc, 'authority_tier'>): 1 | 2 | 3 {
-  const src = (doc.source ?? '').toLowerCase();
-  const dtype = (doc.document_type ?? '').toLowerCase();
-  const url = (doc.url ?? '').toLowerCase();
-
-  // Tier 1: Primary legal sources
-  if (
-    src.includes('ecfr') ||
-    src.includes('federal_register') ||
-    src.includes('usc') ||
-    src.includes('scotus') ||
-    dtype.includes('statute') ||
-    dtype.includes('regulation') ||
-    dtype.includes('case_law') ||
-    dtype.includes('official_guidance') ||
-    dtype.includes('final_rule') ||
-    url.includes('ecfr.gov') ||
-    url.includes('federalregister.gov') ||
-    url.includes('law.cornell.edu') ||
-    url.includes('supremecourt.gov') ||
-    url.includes('congress.gov') ||
-    (url.includes('.gov') && !url.includes('blog'))
-  ) {
-    return 1;
-  }
-
-  // Tier 2: Secondary authoritative sources
-  if (
-    dtype.includes('advisory') ||
-    dtype.includes('whitepaper') ||
-    dtype.includes('industry_standard') ||
-    dtype.includes('template') ||
-    dtype.includes('guidance') ||
-    src.includes('aba') ||  // American Bar Association
-    url.includes('americanbar.org') ||
-    url.includes('nolo.com') ||
-    url.includes('justia.com')
-  ) {
-    return 2;
-  }
-
-  // Tier 3: Tertiary (news, blogs, unclassified web research)
-  return 3;
-}
 
 /**
  * Filters documents by date, keeping those at or after `cutoffYear`.
@@ -174,7 +121,7 @@ async function expandQuery(query: string, industry: string | undefined): Promise
   return [query];
 }
 
-/** 3 — Retrieval: search ChromaDB with multiple queries */
+/** 3 — Retrieval: search ChromaDB with pre-retrieval WHERE filtering */
 async function retrieveFromKB(
   queries: string[],
   industry: string | undefined,
@@ -184,16 +131,39 @@ async function retrieveFromKB(
   const docs: RetrievedDoc[] = [];
   const seenTexts = new Set<string>();
 
+  // Build compound WHERE clause: exclude obsolete + tertiary docs pre-search.
+  // Note: ChromaDB $gt only supports numbers, so we filter deprecated_on via $eq
+  // (ingestion already skips docs with past ends_on dates, so $eq: "" catches all valid docs).
+  const filters: Record<string, any>[] = [
+    { deprecated_on: { $eq: '' } },
+    { authority_tier: { $in: ['1', '2'] } },
+  ];
+  if (industry) {
+    filters.push({ industry: { $eq: industry } });
+  }
+  const where = { $and: filters };
+
   for (const q of queries) {
     const queryEmbedding = await embedQuery(q);
-    const where = industry ? { industry: { $eq: industry } } : undefined;
 
-    const results = await collection.query({
+    let results = await collection.query({
       queryEmbeddings: [queryEmbedding],
-      nResults: 5,
+      nResults: 8,
       where: where as any,
       include: ['documents', 'metadatas', 'distances'],
     });
+
+    // Fallback: if filtered query returns < 2 results, re-query without tier/temporal filters
+    const resultCount = results.documents?.[0]?.filter(Boolean).length ?? 0;
+    if (resultCount < 2) {
+      const fallbackWhere = industry ? { industry: { $eq: industry } } : undefined;
+      results = await collection.query({
+        queryEmbeddings: [queryEmbedding],
+        nResults: 8,
+        where: fallbackWhere as any,
+        include: ['documents', 'metadatas', 'distances'],
+      });
+    }
 
     if (!results.documents?.[0]) continue;
 
@@ -204,7 +174,18 @@ async function retrieveFromKB(
 
       const meta = results.metadatas?.[0]?.[i] || {};
       const distance = results.distances?.[0]?.[i];
-      const partial = {
+
+      // Read authority_tier from metadata first, fall back to deriveAuthorityTier for legacy docs
+      const storedTier = meta.authority_tier as string | undefined;
+      const authorityTier: 1 | 2 | 3 = storedTier
+        ? (parseInt(storedTier, 10) as 1 | 2 | 3)
+        : deriveAuthorityTier({
+            source: (meta.source as string) || 'unknown',
+            document_type: (meta.document_type as string) || 'unknown',
+            url: (meta.url as string) || '',
+          });
+
+      docs.push({
         text: docText,
         source: (meta.source as string) || 'unknown',
         title: (meta.title as string) || 'Untitled',
@@ -214,8 +195,8 @@ async function retrieveFromKB(
         date: (meta.date as string) || '',
         relevance_score: distance != null ? (1 - distance).toFixed(3) : 'N/A',
         origin: 'knowledge_base' as const,
-      };
-      docs.push({ ...partial, authority_tier: deriveAuthorityTier(partial) });
+        authority_tier: authorityTier,
+      });
     }
   }
 
@@ -413,11 +394,16 @@ async function compressContext(
 }
 
 /**
- * 7.5 — Context Pruner: aggressively removes retrieved chunks that conflict
- * with the user's specific scenario (company stage, complexity level).
- * This runs BEFORE generation so the drafting agent never sees irrelevant chunks.
+ * 7.5 — Bouncer Agent: stage-aware pre-drafting filter that strips chunks
+ * calibrated for the wrong company stage. Replaces the generic pruneContext.
+ *
+ * Stage detection: "seed/pre-seed/SAFE/YC" = EARLY, "Series A/B/term sheet" = GROWTH,
+ * "IPO/10-K" = LATE, "M&A/acquisition" = M&A
+ *
+ * Explicit forbidden combinations prevent stage-inappropriate content from
+ * reaching the drafting agent.
  */
-async function pruneContext(
+async function bouncerAgent(
   query: string,
   docs: RetrievedDoc[],
 ): Promise<RetrievedDoc[]> {
@@ -432,15 +418,33 @@ async function pruneContext(
   const { text } = await generateText({
     model,
     system: [
-      'You are a strict relevance filter for a legal memo drafting system.',
+      'You are a stage-aware "bouncer" for a legal memo drafting system.',
       'Your sole job: given a user query and retrieved documents, return the indices of documents to KEEP.',
-      'DELETE (do not keep) any document that:',
-      '  1. Addresses a dramatically different company stage than the query implies (e.g., Fortune 500 M&A docs for a seed startup)',
-      '  2. Covers a jurisdiction irrelevant to the query',
-      '  3. Provides general background that adds no specific legal guidance for this exact scenario',
-      '  4. Conflicts directly with a higher-authority document on the same point without adding new legal nuance',
-      'ALWAYS keep Tier 1 (primary law) documents unless they are obviously off-topic.',
-      'Prefer keeping fewer, more targeted documents over a "kitchen sink" collection.',
+      '',
+      'STAGE DETECTION — determine the company stage from the query:',
+      '  EARLY: Keywords like "seed", "pre-seed", "SAFE", "YC", "first hire", "incorporate", "startup"',
+      '  GROWTH: Keywords like "Series A", "Series B", "term sheet", "option pool", "board seat"',
+      '  LATE: Keywords like "IPO", "10-K", "SEC filing", "public company", "SOX compliance"',
+      '  M&A: Keywords like "acquisition", "merger", "acqui-hire", "due diligence", "LOI"',
+      '',
+      'FORBIDDEN COMBINATIONS — DELETE these chunks if query implies EARLY STAGE:',
+      '  - No-Shop clauses (growth/M&A concept)',
+      '  - Drag-along rights (Series A+ concept)',
+      '  - Registration rights (pre-IPO/IPO concept)',
+      '  - Pay-to-play provisions (Series B+ concept)',
+      '  - Multiple liquidation preferences (growth concept)',
+      '  - Full ratchet anti-dilution (growth concept, unusual at seed)',
+      '',
+      'NEVER DELETE:',
+      '  - Tier 1 primary law documents (statutes, regulations) unless obviously off-topic',
+      '  - Documents about the specific legal instrument the user asked about',
+      '  - Basic definitions that provide necessary context',
+      '',
+      'Also DELETE any document that:',
+      '  1. Covers a jurisdiction irrelevant to the query',
+      '  2. Provides only general background with no specific legal guidance for this scenario',
+      '  3. Conflicts with a higher-authority document on the same point',
+      '',
       'Respond ONLY with a JSON array of indices to KEEP, e.g. [0, 2, 4]. No markdown fences.',
     ].join('\n'),
     prompt: `User query: "${query}"\n\nDocuments:\n${docList}`,
@@ -510,22 +514,6 @@ function buildTieredContext(docs: RetrievedDoc[]): string {
   }
 
   return blocks.join('\n');
-}
-
-/**
- * Validate citations in the generated answer: strip any [Source N] reference
- * where N > number of available sources (programmatic hallucination guard).
- * Returns the cleaned markdown text.
- */
-function validateCitations(text: string, docCount: number): string {
-  return text.replace(/\[Source\s+(\d+)\]/gi, (_match, numStr: string) => {
-    const n = parseInt(numStr, 10);
-    if (n < 1 || n > docCount) {
-      // Hallucinated source — remove the citation marker entirely
-      return '';
-    }
-    return `[Source ${n}]`;
-  });
 }
 
 /** 8 — Self-RAG Generation: generate an initial answer grounded in the documents */
@@ -629,6 +617,61 @@ async function selfRAGGenerate(
       '   Use specific clause language when drafting advice, not generic descriptions.',
       '',
       '═══════════════════════════════════════════════════════',
+      'ENTITY TAXONOMY — MANDATORY DISTINCTIONS',
+      '═══════════════════════════════════════════════════════',
+      '',
+      'SAFE (Simple Agreement for Future Equity):',
+      '  - Created by Y Combinator. NOT equity, NOT a convertible note, NO maturity date, NO interest rate.',
+      '  - Pro-rata rights require a separate side letter — they are NOT built into the standard SAFE.',
+      '  - NEVER attribute SAFE terms to NVCA. NEVER call it a "SAFE note" (it is not a note).',
+      '  - Standard terms: valuation cap, discount rate, MFN provision.',
+      '',
+      'NVCA (National Venture Capital Association):',
+      '  - Governs priced equity rounds (Series A and beyond). Template documents for term sheets,',
+      '    Stock Purchase Agreements, Investors Rights Agreements, ROFR/Co-Sale, Voting Agreements.',
+      '  - NEVER attribute NVCA terms to YC or to SAFEs.',
+      '',
+      'Convertible Note:',
+      '  - IS debt. HAS a maturity date. HAS an interest rate. Converts to equity at a future priced round.',
+      '  - NEVER call a SAFE a "convertible note" or "SAFE note" — they are fundamentally different instruments.',
+      '',
+      'Regulatory Bodies — NEVER confuse jurisdictions:',
+      '  - SEC: Securities regulation (offerings, disclosure, trading)',
+      '  - FTC: Consumer protection, advertising, antitrust',
+      '  - FDA: Food, drugs, medical devices — NOT general health privacy',
+      '  - HHS/OCR: HIPAA enforcement (health information privacy)',
+      '  - DOL: Employment/labor law (FLSA, FMLA, ERISA)',
+      '  - EEOC: Employment discrimination (Title VII, ADA, ADEA)',
+      '',
+      'Legal vs. Contractual:',
+      '  - Liquidation preference = contractual (negotiated between parties), NOT statutory.',
+      '  - Fiduciary duty = legal obligation (statutory/common law), NOT merely contractual.',
+      '  - Do NOT present contractual negotiation norms as legally mandated requirements.',
+      '',
+      '═══════════════════════════════════════════════════════',
+      'EXPLICIT PROHIBITIONS — NEGATIVE PROMPTING',
+      '═══════════════════════════════════════════════════════',
+      '',
+      'SAFE-SPECIFIC PROHIBITIONS:',
+      '  - Do NOT include Information Rights, No-Shop clauses, board seats, drag-along rights,',
+      '    or registration rights in SAFE analysis — these are Series A+ concepts.',
+      '',
+      'CONFLATION PAIRS — NEVER conflate:',
+      '  - "Regulatory requirement" vs "market standard" — these are different things.',
+      '  - "SAFE" vs "convertible note" — different instruments with different mechanics.',
+      '  - "HIPAA" vs "CCPA" — different laws, different scopes, different regulators.',
+      '  - "Statute" vs "best practice" — one is law, the other is not.',
+      '',
+      'WEASEL PHRASES — Do NOT use without a [Source N] citation:',
+      '  - "generally accepted", "industry best practice", "most companies", "standard practice",',
+      '    "typically", "commonly" — all require a source to substantiate.',
+      '',
+      'DANGEROUS RECOMMENDATIONS — Include caveats when discussing:',
+      '  - Non-compete agreements (landscape is rapidly changing; many states ban them)',
+      '  - Specific tax strategies (must recommend consulting a tax professional)',
+      '  - International IP assignments (moral rights, enforceability varies by jurisdiction)',
+      '',
+      '═══════════════════════════════════════════════════════',
       'SOURCE AUTHORITY HIERARCHY — strictly enforced',
       '═══════════════════════════════════════════════════════',
       'Sources are labelled [PRIMARY LAW — Tier 1], [SECONDARY — Tier 2], or [TERTIARY — Tier 3].',
@@ -661,9 +704,14 @@ async function selfRAGGenerate(
       '',
       'APA FORMAT & STRUCTURE:',
       '- Begin with a brief ## Summary (2-3 sentences summarising the key legal issues and conclusions)',
+      '- After the Summary, include a ## Key Findings table with columns: Issue | Risk Level | Applicable Law | Section',
       '- Use ## and ### markdown headings; organise by issue (Risk → Fix), not by source',
       '- Include specific identifiers: statute numbers, CFR sections, case names with year, regulation titles',
-      '- Every paragraph must have at least one [Source N] citation',
+      '- Group source citations at the end of each subsection rather than after every sentence — e.g. a paragraph may cite [Source 1][Source 3] at its end',
+      '- Use blockquotes (> prefix) for exact contract clause language or statutory text — never paraphrase statute text in plain prose',
+      '- **Bold** all key legal terms and statutory references on first occurrence (e.g. **DTSA**, **17 U.S.C. § 101**)',
+      '- Limit bullet list nesting to one level maximum — flatten deeply nested lists into separate sections',
+      '- Do NOT repeat source information inline — cite with compact [Source N] markers only',
       '- Do NOT include a References or Sources section — citations are hyperlinked automatically.',
       '- Final section: ## Disclaimer — informational only, not legal advice',
     ].join('\n'),
@@ -770,12 +818,14 @@ async function pragmatistCritic(
       '  KITCHEN_SINK: Including clauses or protections that are academically valid but commercially unusual for this scenario — essentially drafting a Fortune 500 agreement for a startup.',
       '  STAGE_MISMATCH: Advice calibrated for a different company stage than the query implies (e.g., Series C-level structuring advice for a pre-seed founder).',
       '  COMPLEXITY_OVERKILL: Recommending a multi-step, multi-agent process where a single paragraph clause would suffice.',
+      '  ADMIN_NIGHTMARE: Advice requires unsustainable administrative overhead for the company\'s size (quarterly compliance audits for a 3-person startup, formal WISP without a security team, annual board evaluations for a pre-revenue company).',
+      '  MARKET_DISCONNECT: Advice contradicts widely-known market norms without acknowledging deviation (recommending 2x participating preferred as "standard" when 1x non-participating is seed market norm, suggesting 6-year vesting when 4-year is universal).',
       '',
       'DO NOT flag: citation issues, regulatory accuracy, formatting, or legal correctness. Those are handled elsewhere.',
       'Only flag what a venture-backed startup founder or commercial GC would consider tone-deaf or impractical.',
       '',
       'Respond ONLY with JSON (no markdown fences):',
-      '{ "needsRevision": boolean, "errorCodes": ["PRAGMATISM_FAILURE"|"KITCHEN_SINK"|"STAGE_MISMATCH"|"COMPLEXITY_OVERKILL"], "feedback": ["specific section + fix"] }',
+      '{ "needsRevision": boolean, "errorCodes": ["PRAGMATISM_FAILURE"|"KITCHEN_SINK"|"STAGE_MISMATCH"|"COMPLEXITY_OVERKILL"|"ADMIN_NIGHTMARE"|"MARKET_DISCONNECT"], "feedback": ["specific section + fix"] }',
       'Set needsRevision=true only when the advice would cause a reasonable founder to distrust it as out-of-touch.',
     ].join('\n'),
     prompt: `Client Query: "${query}"\n\nDraft:\n${answer.slice(0, 3500)}`,
@@ -820,11 +870,12 @@ async function complianceCritic(
       '  SOURCE_CONFLATION: A commercial negotiation norm is presented as if it were a regulatory compliance requirement (e.g., "indemnification is required by GDPR").',
       '  COMPLIANCE_SCOPE_ERROR: A regulation\'s scope is overstated or understated (e.g., claiming CCPA applies to B2B companies with no California consumers).',
       '  REGULATORY_UPGRADE: A Tier 2 or Tier 3 source is being used to assert a binding legal requirement that should only come from a Tier 1 source.',
+      '  REGULATORY_COMMERCIAL_BLEND: The draft mixes regulatory requirements with commercial contract mechanics in a way that implies commercial terms are legally required (e.g., "GDPR requires a limitation of liability clause", "HIPAA mandates indemnification provisions").',
       '',
       'DO NOT flag: commercial advice quality, over-engineering, formatting, or citation style.',
       '',
       'Respond ONLY with JSON (no markdown fences):',
-      '{ "needsRevision": boolean, "errorCodes": ["AGENCY_ATTRIBUTION_ERROR"|"SOURCE_CONFLATION"|"COMPLIANCE_SCOPE_ERROR"|"REGULATORY_UPGRADE"], "feedback": ["specific claim + correction"] }',
+      '{ "needsRevision": boolean, "errorCodes": ["AGENCY_ATTRIBUTION_ERROR"|"SOURCE_CONFLATION"|"COMPLIANCE_SCOPE_ERROR"|"REGULATORY_UPGRADE"|"REGULATORY_COMMERCIAL_BLEND"], "feedback": ["specific claim + correction"] }',
       'Set needsRevision=true only for errors that would expose the client to real legal or compliance risk.',
     ].join('\n'),
     prompt: [
@@ -847,14 +898,77 @@ async function complianceCritic(
 }
 
 /**
- * 12 — Dual Revision: incorporates feedback from both critics in one targeted rewrite.
+ * 11c — Critic C (The Structural Auditor):
+ * Exclusively audits tables, lists, footnotes, and comparison matrices for
+ * hallucinated content. Only runs when the answer contains structured elements.
+ */
+async function structuralCritic(
+  query: string,
+  answer: string,
+  docs: RetrievedDoc[],
+): Promise<CriticResult> {
+  // Pre-check: only run if answer contains tables, lists, or footnotes
+  const hasTable = /\|.*---/.test(answer);
+  const hasList = /^[\s]*[-*]\s|^\s*\d+\.\s/m.test(answer);
+  const hasFootnote = /\[\^?\d+\]/.test(answer);
+
+  if (!hasTable && !hasList && !hasFootnote) {
+    return { needsRevision: false, errorCodes: [], feedback: [] };
+  }
+
+  const model = getLLM();
+
+  const sourceList = docs
+    .map((d, i) => `[Source ${i + 1}] ${d.title}: ${d.text.slice(0, 200)}`)
+    .join('\n');
+
+  const { text } = await generateText({
+    model,
+    system: [
+      'You are a structural content auditor. You ONLY review tables, footnotes, numbered lists, and comparison matrices.',
+      'Your ONLY job: catch hallucinated or fabricated structured content. Ignore prose, formatting, and commercial advice.',
+      'Flag these specific failure modes — ONLY these:',
+      '  TABLE_HALLUCINATION: A table cell contains a fact, number, date, or comparison that is not supported by any source document.',
+      '  LIST_FABRICATION: A bulleted or numbered list item presents a requirement, step, or fact not found in any source document.',
+      '  FOOTNOTE_PHANTOM: A footnote reference [^N] or [N] points to content that does not exist in the sources.',
+      '  COLUMN_MISALIGNMENT: A comparison table attributes a feature or property to the wrong column/entity (e.g., attributing an LLC feature to a C-Corp column).',
+      '',
+      'DO NOT flag: prose content, citation style, commercial advice, or regulatory accuracy outside of structured elements.',
+      'ONLY audit structured elements (tables, lists, footnotes).',
+      '',
+      'Respond ONLY with JSON (no markdown fences):',
+      '{ "needsRevision": boolean, "errorCodes": ["TABLE_HALLUCINATION"|"LIST_FABRICATION"|"FOOTNOTE_PHANTOM"|"COLUMN_MISALIGNMENT"], "feedback": ["specific element + correction"] }',
+      'Set needsRevision=true only when a structured element contains verifiably wrong information.',
+    ].join('\n'),
+    prompt: [
+      `Client Query: "${query}"`,
+      `\nSource Documents:\n${sourceList}`,
+      `\nDraft:\n${answer.slice(0, 4000)}`,
+    ].join('\n'),
+  });
+
+  try {
+    const p = JSON.parse(text);
+    return {
+      needsRevision: Boolean(p.needsRevision),
+      errorCodes: Array.isArray(p.errorCodes) ? p.errorCodes : [],
+      feedback: Array.isArray(p.feedback) ? p.feedback : [],
+    };
+  } catch {
+    return { needsRevision: false, errorCodes: [], feedback: [] };
+  }
+}
+
+/**
+ * 12 — Triple Revision: incorporates feedback from all three critics in one targeted rewrite.
  * Only triggered when at least one critic flags a critical issue.
  */
-async function applyDualRevision(
+async function applyTripleRevision(
   query: string,
   answer: string,
   pragmatistResult: CriticResult,
   complianceResult: CriticResult,
+  structuralResult: CriticResult,
   docs: RetrievedDoc[],
 ): Promise<string> {
   const model = getLLM();
@@ -869,16 +983,18 @@ async function applyDualRevision(
   const allFeedback = [
     ...pragmatistResult.feedback.map((f) => `[COMMERCIAL] ${f}`),
     ...complianceResult.feedback.map((f) => `[COMPLIANCE] ${f}`),
+    ...structuralResult.feedback.map((f) => `[STRUCTURAL] ${f}`),
   ];
 
   const { text } = await generateText({
     model,
     system: [
       'You are a senior attorney making targeted revisions to a draft memo.',
-      'You have received two types of peer review: commercial pragmatism issues and compliance accuracy issues.',
+      'You have received three types of peer review: commercial pragmatism, compliance accuracy, and structural content issues.',
       'Rules — strictly enforce:',
       '  [COMMERCIAL] feedback: Remove or simplify over-engineered clauses; calibrate advice to the user\'s actual company stage; cut "kitchen sink" inclusions.',
       '  [COMPLIANCE] feedback: Correct wrong agency attributions; remove claims that conflate commercial norms with regulatory requirements; fix compliance scope errors.',
+      '  [STRUCTURAL] feedback: Correct any hallucinated table cells, fabricated list items, or phantom footnote references. Fix column misalignments in comparison tables.',
       '  Preserve ALL accurate, well-cited content that was not flagged.',
       '  Do NOT introduce new claims not in the source documents.',
       '  Preserve all valid [Source N] citation markers.',
@@ -1043,20 +1159,24 @@ export const legalSearch = ({
       s('Refinement', 'Compressing context');
       const compressed = await compressContext(query, topDocs);
 
-      // ── Phase 4.5: Context Pruning ────────────────────────────────────
-      s('Refinement', 'Pruning irrelevant chunks (scenario alignment)');
-      const pruned = await pruneContext(query, compressed);
+      // ── Phase 4.5: Bouncer Agent (stage-aware context pruning) ────────
+      s('Refinement', 'Bouncer agent filtering (stage alignment)');
+      const pruned = await bouncerAgent(query, compressed);
       const prunedCount = compressed.length - pruned.length;
       if (prunedCount > 0) {
-        s('Refinement', `Pruned ${prunedCount} off-scenario chunk(s)`);
+        s('Refinement', `Bouncer removed ${prunedCount} off-stage chunk(s)`);
       }
 
       // ── Phase 5: Analysis ────────────────────────────────────────────
       s('Analysis', 'Generating legal analysis (Self-RAG + tiered context)');
       const initialAnswer = await selfRAGGenerate(query, pruned);
 
-      // Programmatic citation validation: strip any [Source N] where N > doc count
-      const citationValidated = validateCitations(initialAnswer, pruned.length);
+      // Programmatic citation validation: extract structured citations and strip invalid ones
+      const { cleanedText: citationValidated, invalidCount } =
+        extractAndValidateCitations(initialAnswer, pruned as CitableSource[]);
+      if (invalidCount > 0) {
+        s('Analysis', `Stripped ${invalidCount} invalid citation(s)`);
+      }
 
       s('Analysis', 'Verifying groundedness');
       const reflection = await selfRAGReflect(query, citationValidated, pruned);
@@ -1068,24 +1188,28 @@ export const legalSearch = ({
       s('Analysis', 'Grounding citations');
       const groundedAnswer = await groundCitations(citationValidated, pruned, reflection);
 
-      // ── Phase 6: Dual Critic Review ──────────────────────────────────
+      // ── Phase 6: Triple Critic Review ─────────────────────────────────
       s('Review', 'Critic A — Commercial Pragmatist');
       s('Review', 'Critic B — Compliance Officer');
-      const [pragResult, compResult] = await Promise.all([
+      s('Review', 'Critic C — Structural Auditor');
+      const [pragResult, compResult, structResult] = await Promise.all([
         pragmatistCritic(query, groundedAnswer),
         complianceCritic(query, groundedAnswer, pruned),
+        structuralCritic(query, groundedAnswer, pruned),
       ]);
 
       const pragCodes = pragResult.errorCodes.join(', ') || 'none';
       const compCodes = compResult.errorCodes.join(', ') || 'none';
+      const structCodes = structResult.errorCodes.join(', ') || 'none';
       s('Review', `Pragmatist: ${pragResult.needsRevision ? `⚠ ${pragCodes}` : 'Passed ✓'}`);
       s('Review', `Compliance: ${compResult.needsRevision ? `⚠ ${compCodes}` : 'Passed ✓'}`);
+      s('Review', `Structural: ${structResult.needsRevision ? `⚠ ${structCodes}` : 'Passed ✓'}`);
 
       let finalAnswer = groundedAnswer;
-      if (pragResult.needsRevision || compResult.needsRevision) {
-        const totalIssues = pragResult.feedback.length + compResult.feedback.length;
-        s('Review', `Revising: ${totalIssues} issue(s) flagged across both critics`);
-        finalAnswer = await applyDualRevision(query, groundedAnswer, pragResult, compResult, pruned);
+      if (pragResult.needsRevision || compResult.needsRevision || structResult.needsRevision) {
+        const totalIssues = pragResult.feedback.length + compResult.feedback.length + structResult.feedback.length;
+        s('Review', `Revising: ${totalIssues} issue(s) flagged across three critics`);
+        finalAnswer = await applyTripleRevision(query, groundedAnswer, pragResult, compResult, structResult, pruned);
       }
 
       // Post-process step A: convert [Source N] markers to APA-style citations

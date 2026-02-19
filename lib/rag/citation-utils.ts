@@ -167,6 +167,66 @@ export function formatMarkdownSourceList(docs: CitableSource[]): string {
 }
 
 // ---------------------------------------------------------------------------
+// 1b. Structured citation validation (programmatic claim-to-source mapping)
+// ---------------------------------------------------------------------------
+
+export interface StructuredCitation {
+  /** The source index (1-based) referenced by this citation */
+  sourceIndex: number;
+  /** The surrounding claim text (up to 200 chars before and after the marker) */
+  claimContext: string;
+  /** Whether this citation maps to a valid source in the array */
+  isValid: boolean;
+}
+
+/**
+ * Extracts every [Source N] marker from the text, validates each against the
+ * sources array, and returns structured citation data plus cleaned text with
+ * invalid citations stripped.
+ */
+export function extractAndValidateCitations(
+  text: string,
+  sources: CitableSource[],
+): { citations: StructuredCitation[]; cleanedText: string; invalidCount: number } {
+  const citations: StructuredCitation[] = [];
+  let invalidCount = 0;
+
+  // Extract all citations with context
+  const pattern = /\[Source\s+(\d+)\]/gi;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const n = parseInt(match[1], 10);
+    const idx = n - 1;
+    const isValid = idx >= 0 && idx < sources.length;
+
+    // Extract surrounding context (up to 200 chars before and after)
+    const start = Math.max(0, match.index - 200);
+    const end = Math.min(text.length, match.index + match[0].length + 200);
+    const claimContext = text.slice(start, end).trim();
+
+    citations.push({ sourceIndex: n, claimContext, isValid });
+    if (!isValid) invalidCount++;
+  }
+
+  if (invalidCount > 0) {
+    console.warn(
+      `[citation-utils] ${invalidCount} invalid citation(s) detected and stripped`,
+    );
+  }
+
+  // Strip invalid citations from the text
+  const cleanedText = text.replace(/\[Source\s+(\d+)\]/gi, (_m, numStr: string) => {
+    const n = parseInt(numStr, 10);
+    const idx = n - 1;
+    if (idx < 0 || idx >= sources.length) return '';
+    return `[Source ${n}]`;
+  });
+
+  return { citations, cleanedText, invalidCount };
+}
+
+// ---------------------------------------------------------------------------
 // 2. Legal concept auto-linking
 // ---------------------------------------------------------------------------
 

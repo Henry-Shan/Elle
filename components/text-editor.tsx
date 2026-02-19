@@ -160,7 +160,7 @@ function PureEditor({
   }, [suggestions, content]);
 
   return (
-    <div className="relative prose dark:prose-invert" ref={containerRef} />
+    <div className="relative prose dark:prose-invert max-w-none" ref={containerRef} />
   );
 }
 

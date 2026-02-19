@@ -1843,6 +1843,9 @@ def main():
             "document_type": doc["document_type"],
             "jurisdiction": doc["jurisdiction"],
             "relevance_score": "0.95",
+            "authority_tier": "2",
+            "market_standard_from": doc.get("date", ""),
+            "deprecated_on": "",
         }
         chunks = chunk_text(doc["content"].strip(), base_meta)
         if not chunks:

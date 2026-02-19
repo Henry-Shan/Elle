@@ -847,6 +847,9 @@ export async function seedLegalConcepts(): Promise<number> {
       url: doc.url,
       date: doc.date,
       relevance_score: '0.95',
+      authority_tier: '2',
+      market_standard_from: doc.date,
+      deprecated_on: '',
     };
 
     const chunks = chunkText(doc.content.trim(), baseMetadata);
