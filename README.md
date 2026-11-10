@@ -1,291 +1,164 @@
-# Elle AI - Startup Legal AI Assistant
+<div align="center">
 
-Elle AI is a sophisticated legal AI chatbot designed specifically for startups and businesses across multiple industries. Built with Next.js 15 and the Vercel AI SDK, it provides specialized legal guidance with industry-specific models and compliance frameworks.
+# Σlle AI
 
-## 🚀 Features
+**An agentic legal-research engine for startups — multi-stage RAG over federal law, with authority-tiered retrieval, self-reflective generation and adversarial critic review. Every claim cites its source.**
 
-### Industry-Specific AI Models
-Elle AI offers specialized legal models for different industries:
+[Live demo](https://elle-psi.vercel.app) · [Architecture](#architecture) · [Retrieval pipeline](#the-retrieval-pipeline) · [Knowledge base](#knowledge-base) · [Run locally](#run-locally)
 
-- **General**: Multi-industry compliance with CYA principles
-- **Healthcare**: HIPAA-certified compliance, Stark Law, Anti-Kickback Statutes
-- **E-commerce**: FTC/UCPD compliance, GDPR/CCPA privacy policies
-- **SaaS**: SOC 2/SLAs, cloud contract expertise
-- **EdTech**: FERPA/COPPA compliance, educational technology regulations
-- **Real Estate**: CRE transactions, REIT/1031 exchanges, SEC compliance
-- **Travel & Hospitality**: DOT/EU261 compliance, accessibility regulations
-- **Gaming & Esports**: ESIC-certified gaming counsel, NFT/IP licensing
+![Next.js 15](https://img.shields.io/badge/Next.js-15-000?logo=nextdotjs&logoColor=fff)
+![Vercel AI SDK](https://img.shields.io/badge/Vercel%20AI%20SDK-000?logo=vercel&logoColor=fff)
+![GenSX](https://img.shields.io/badge/GenSX-workflows-7c3aed)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-HNSW%20vector%20store-ff6b35)
+![LLM](https://img.shields.io/badge/LLM-DeepSeek%20R1%20%7C%20Mistral%20Large-4d6bfe)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
-### Core Capabilities
+<img src=".github/assets/landing.png" alt="Elle AI landing page" width="100%">
 
-- **Interactive Chat Interface**: Real-time legal consultations with specialized AI models
-- **Artifact System**: Create and edit documents, code, images, and spreadsheets
-- **Document Management**: Version control, suggestions, and collaborative editing
-- **Authentication**: Secure login with Google, GitHub, and email/password
-- **Web Search Integration**: Real-time legal research capabilities
-- **Multi-modal Input**: Support for text, images, and file attachments
+</div>
 
-### Artifact Types
+Elle treats a legal question as a research task, not a completion. A question like *"draft an NDA for a SaaS company"* is routed, decomposed into sub-queries, embedded and searched against a corpus of federal regulations, graded for relevance, reranked by legal authority, compressed, filtered for the founder's company stage, drafted with self-reflection, and then reviewed by three independent critic agents before a single revised document — with resolvable `[Source N]` citations — opens in the editor. Each stage streams its status to the UI as it runs.
 
-1. **Text Artifact**: Draft essays, emails, and legal documents
-2. **Code Artifact**: Write and execute Python code
-3. **Image Artifact**: Edit, annotate, and process images
-4. **Sheet Artifact**: Create and analyze tabular data
+> Informational only — not legal advice.
 
-## 🛠️ Technology Stack
+## What makes it different
 
-### Frontend
-- **Next.js 15** with App Router
-- **React 18** with TypeScript
-- **Tailwind CSS** for styling
-- **Framer Motion** for animations
-- **Radix UI** components
-- **ProseMirror** for rich text editing
-- **CodeMirror** for code editing
+- **Citation grounding, enforced** — every factual claim must trace to a `[Source N]` marker that resolves to a statute, regulation or guidance document. A verification pass extracts and validates each citation; claims without one are flagged as unverified. Citations are post-processed to APA form and foundational doctrines are auto-hyperlinked inline.
+- **Authority-tiered retrieval** — every chunk is classified at ingest time: Tier 1 (statutes, regulations, case law, official guidance), Tier 2 (law-firm advisories, standards), Tier 3 (news, blogs, open web). Tier drives reranking (semantic rank score + tier boost, with a hard rule that Tier 3 never outranks relevant Tier 1), context budgeting, and the ordering the drafting model sees.
+- **Corrective and self-reflective RAG** — a CRAG grader scores each retrieved chunk and declares the evidence set sufficient only when ≥ 2 documents are highly relevant, otherwise triggering live web research; a Self-RAG reflection pass audits the draft for unsupported claims and regenerates when it finds any.
+- **Stage-aware context pruning** — a "bouncer" agent detects the company stage from the query (pre-seed / SAFE → *early*, Series A–B → *growth*, IPO / 10-K → *late*, M&A) and strips chunks calibrated for the wrong stage, with explicit forbidden combinations so public-company disclosure rules never reach a seed-stage draft.
+- **Adversarial critic ensemble** — three single-responsibility critics review the draft independently: a *Commercial Pragmatist* (is the advice actionable for an operator), a *Compliance Officer* (regulatory attribution and liability constraints only), and a *Structural Auditor* (tables, lists, footnotes and comparison matrices, hunting hallucinated cells — runs only when structured elements exist). Their findings are merged into one targeted revision.
+- **16 industry personas** — base / pro variants across general, healthcare, e-commerce, SaaS, EdTech, real estate, travel and esports, each with industry-specific guardrails baked into the system prompt (HIPAA / Stark / AKS, FTC / UCPD, SOC 2, FERPA / COPPA, …).
+- **Observable by design** — pipeline phases are emitted as typed data-stream events and rendered as a live thought-process timeline in the chat; the final answer opens as a side-by-side artifact with version history, inline suggestions and one-click export to Google Docs through the Drive API.
 
-### Backend
-- **Next.js API Routes**
-- **Vercel AI SDK** for AI integration
-- **NextAuth.js** for authentication
-- **Drizzle ORM** with PostgreSQL
-- **Vercel Blob** for file storage
+<div align="center"><img src=".github/assets/chat.png" alt="Elle AI chat" width="100%"></div>
 
-### AI & ML
-- **Multiple AI Providers**: OpenAI, DeepSeek, Fireworks
-- **Custom Legal Models**: Industry-specific prompts and guardrails
-- **Streaming Responses**: Real-time AI interactions
-- **Tool Integration**: Calculator, web search, document creation
+## Architecture
 
-### Database
-- **PostgreSQL** with Drizzle ORM
-- **Database Migrations** with Drizzle Kit
-- **Real-time Updates** with SWR
-
-## 📋 Prerequisites
-
-- Node.js 18+ 
-- pnpm (recommended package manager)
-- PostgreSQL database
-- API keys for AI providers (OpenAI, DeepSeek, Fireworks)
-- OAuth credentials (Google, GitHub)
-
-## 🚀 Quick Start
-
-### 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd Elle
+```
+                     ┌──────────────────────────────────────────────────────────────┐
+  browser ──SSE──▶   │  app/(chat)/api/chat   ·  GenSX ExecuteChat workflow          │
+  (timeline, artifact│    StreamText(model, system=persona, tools, maxSteps=8)        │
+   editor, chat)     │    tools: legalSearch · webSearch · createDocument · updateDoc │
+                     │           requestSuggestions · calculator · getDate · mcp     │
+                     └───────────────┬──────────────────────────────────────────────┘
+                                     │ legalSearch(query, industry?, recentOnly?)
+                                     ▼
+          ┌──────────────────────────────────────────────────────────────────────┐
+          │  lib/ai/tools/legal-search.ts — six-phase research pipeline          │
+          │  status events ──▶ data stream ──▶ <ThoughtProcessTimeline/>          │
+          └───────┬───────────────────────────┬──────────────────────────────────┘
+                  │ embedQuery                │ generateText (route · grade · rerank
+                  ▼                           ▼  compress · bounce · draft · reflect · critique)
+     ┌─────────────────────┐        ┌──────────────────────────┐
+     │ ChromaDB (HNSW)     │        │ lib/ai/providers.ts      │
+     │ legal-documents     │        │ DeepSeek chat / R1 ◀─┐   │
+     │ local or Cloud      │        │ Mistral Large        │   │   custom fetch shim injects
+     └─────────▲───────────┘        │ extractReasoning MW  │   │   reasoning_content for R1
+               │ ingest             └──────────────────────┼───┘
+     ┌─────────┴───────────────────────────────────────────┘
+     │ scripts/ — eCFR · Federal Register · seeded doctrines
+     │ lib/rag/chunker.ts — 2 000-char / 400-char overlap · deriveAuthorityTier()
+     └─────────────────────────────────────────────────────────────────────────
 ```
 
-### 2. Install Dependencies
+Postgres (Drizzle) persists users, chats, messages, documents, document versions, suggestions and votes. `chromadb` and `onnxruntime-node` are dynamically imported and externalised from the Next.js server bundle so the Node runtime loads them only inside the tool.
+
+## The retrieval pipeline
+
+`legalSearch` ([`lib/ai/tools/legal-search.ts`](lib/ai/tools/legal-search.ts)) runs six phases; each emits `Phase::step` status events consumed by the timeline.
+
+```mermaid
+flowchart LR
+  Q["Question"] --> A["1 · Query analysis<br/>LLM router · query expansion"]
+  A --> R["2 · Retrieval<br/>multi-query ANN search<br/>temporal filter"]
+  R --> E["3 · Evaluation<br/>CRAG relevance grading<br/>web research fallback"]
+  E --> F["4 · Refinement<br/>authority-weighted rerank<br/>extractive compression · bouncer"]
+  F --> G["5 · Analysis<br/>Self-RAG draft → reflect<br/>citation grounding"]
+  G --> C["6 · Review<br/>3 independent critics<br/>→ single targeted revision"]
+  C --> D["Cited artifact"]
+```
+
+| Phase | Mechanism | Design intent |
+|---|---|---|
+| **Query analysis** | An LLM router selects sources (knowledge base, web, or both) given live collection size; the query is expanded into complementary sub-queries | A single embedding under-covers multi-issue legal questions |
+| **Retrieval** | Each sub-query is embedded (`text-embedding-3-small`) and searched in Chroma; results are deduplicated and, with `recentOnly`, documents older than 3 years are deprioritised — undated primary law is never dropped | Regulations drift; statutes don't expire |
+| **Evaluation** | Corrective-RAG grader labels each chunk relevant / irrelevant and the set sufficient / insufficient; insufficiency triggers web research whose results are tiered on the way in | Never draft from weak evidence |
+| **Refinement** | LLM reranker produces a semantic order; final score = rank score + authority-tier boost with a Tier-1-over-Tier-3 invariant; extractive compression keeps only query-relevant passages; the bouncer agent removes stage-inappropriate chunks | Right law, right stage, minimal tokens |
+| **Analysis** | Draft against tiered context; Self-RAG reflection enumerates hallucinations and suggestions and regenerates if any exist; every `[Source N]` is extracted and validated against the retrieved set | Catch unsupported claims before review, not after |
+| **Review** | Pragmatist, Compliance and Structural critics each return `needsRevision` + findings; one revision pass applies all three. Output is structured RISK → CONTRACTUAL FIX → OPERATIONAL FIX | Practitioner-grade output for operators, not law students |
+
+## Knowledge base
+
+`pnpm db:ingest` builds the `legal-documents` Chroma collection — chunked at ~500 tokens with ~100-token overlap, each chunk carrying industry, document type, source URL, date and a derived authority tier.
+
+| Source | Scope |
+|---|---|
+| **eCFR** — [`scripts/ingest-ecfr.ts`](scripts/ingest-ecfr.ts) | 14 CFR titles mapped to verticals: 21 (FDA), 42, 45 (HHS / HIPAA), 16 (FTC), 15, 47 (FCC), 34 (Education), 12, 24 (HUD), 14 (FAA), 46, 31, 28, 29 (Labor) |
+| **Federal Register** — [`scripts/ingest-federal-register.ts`](scripts/ingest-federal-register.ts) | Recent rulemaking from 14 agencies: FDA, HHS, CMS, FTC, CPSC, FCC, ED, HUD, CFPB, DOT, FAA, TSA, DOJ, FinCEN |
+| **Seeded doctrines** — [`scripts/seed_legal_concepts.py`](scripts/seed_legal_concepts.py) | ~25 foundational concepts the critics expect to see applied — present assignment vs. promise to assign (*Stanford v. Roche*), GPL vs. AGPL copyleft for SaaS, DTSA §1833(b) whistleblower notice, state IP carve-outs, New York Convention arbitration — auto-linked inline in answers |
+
+## Stack
+
+| | |
+|---|---|
+| App | Next.js 15 (App Router, RSC), React 18, TypeScript, Tailwind, Radix / shadcn, Framer Motion |
+| Orchestration | Vercel AI SDK `streamText` with multi-step tool use, composed as GenSX components; typed data-stream events for pipeline telemetry |
+| Models | DeepSeek `deepseek-chat` + `deepseek-reasoner` (R1) by default — with `extractReasoningMiddleware` and an HTTP-level shim that injects `reasoning_content` on assistant turns, which the R1 API requires; Mistral Large via `AI_PROVIDER=mistral` |
+| Retrieval | ChromaDB (local server or Chroma Cloud) over OpenAI `text-embedding-3-small`; per-user 5-minute result cache bridging the tool to document creation |
+| Data | Postgres via Drizzle ORM with versioned migrations; Vercel Blob for attachments |
+| Auth | NextAuth — credentials, Google (Drive / Docs scopes for export), GitHub |
+| Deploy | Vercel |
+
+## Run locally
+
+Prerequisites: Node 18+, pnpm, Python 3 (seed script), Postgres, and either a local Chroma (`pip install chromadb`) or Chroma Cloud.
 
 ```bash
+git clone https://github.com/Henry-Shan/Elle.git && cd Elle
 pnpm install
+cp .env.example .env.local        # fill in the values below
+
+pnpm db:migrate                   # Postgres schema
+pnpm chroma                       # terminal 2: local vector store on :8000
+pnpm db:ingest                    # seeded doctrines + eCFR + Federal Register
+pnpm dev                          # http://localhost:3000
 ```
 
-### 3. Environment Setup
+| Variable | Purpose |
+|---|---|
+| `POSTGRES_URL` | Postgres connection string |
+| `AUTH_SECRET` | NextAuth session secret |
+| `AI_PROVIDER` | `deepseek` (default) or `mistral` |
+| `DEEPSEEK_API_KEY` / `MISTRAL_API_KEY` | Chat, pipeline and critic models |
+| `OPENAI_API_KEY` | Embeddings only |
+| `CHROMA_HOST`, `CHROMA_PORT` | Local Chroma (default `localhost:8000`) |
+| `CHROMA_API_KEY`, `CHROMA_TENANT`, `CHROMA_DATABASE` | Chroma Cloud — takes precedence when all three are set |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google sign-in and Docs export |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub sign-in |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob for attachments |
 
-Create a `.env.local` file with the following variables:
-
-```env
-# Database
-DATABASE_URL="postgresql://username:password@localhost:5432/elle_ai"
-
-# Authentication
-AUTH_SECRET="your-auth-secret"
-GOOGLE_CLIENT_ID="your-google-client-id"
-GOOGLE_CLIENT_SECRET="your-google-client-secret"
-GITHUB_CLIENT_ID="your-github-client-id"
-GITHUB_CLIENT_SECRET="your-github-client-secret"
-
-# AI Providers
-OPENAI_API_KEY="your-openai-api-key"
-DEEPSEEK_API_KEY="your-deepseek-api-key"
-FIREWORKS_API_KEY="your-fireworks-api-key"
-
-# File Storage
-BLOB_READ_WRITE_TOKEN="your-vercel-blob-token"
-```
-
-### 4. Database Setup
-
-```bash
-# Generate database migrations
-pnpm db:generate
-
-# Run migrations
-pnpm db:migrate
-
-# (Optional) Open database studio
-pnpm db:studio
-```
-
-### 5. Start Development Server
-
-```bash
-pnpm dev
-```
-
-The application will be available at `http://localhost:3000`.
-
-## 📚 Available Scripts
-
-```bash
-# Development
-pnpm dev              # Start development server with Turbo
-pnpm build            # Build for production
-pnpm start            # Start production server
-
-# Code Quality
-pnpm lint             # Run ESLint and Biome
-pnpm lint:fix         # Fix linting issues
-pnpm format           # Format code with Biome
-
-# Database
-pnpm db:generate      # Generate migrations
-pnpm db:migrate       # Run migrations
-pnpm db:studio        # Open Drizzle Studio
-pnpm db:push          # Push schema changes
-pnpm db:pull          # Pull schema from database
-
-# Testing
-pnpm test             # Run Playwright tests
-```
-
-## 🏗️ Project Structure
+## Project layout
 
 ```
-Elle/
-├── app/                    # Next.js App Router
-│   ├── (auth)/            # Authentication pages
-│   ├── (chat)/            # Chat interface and API
-│   └── (home)/            # Homepage
-├── artifacts/             # Artifact system
-│   ├── code/              # Code artifact
-│   ├── image/             # Image artifact
-│   ├── sheet/             # Spreadsheet artifact
-│   └── text/              # Text artifact
-├── components/            # React components
-│   ├── ui/                # Reusable UI components
-│   └── ...                # Feature components
-├── lib/                   # Utility libraries
-│   ├── ai/                # AI models and tools
-│   ├── db/                # Database schema and queries
-│   ├── editor/            # Editor configurations
-│   └── workflows/         # AI workflows
-├── hooks/                 # Custom React hooks
-└── docs/                  # Documentation
+app/(chat)/api/chat/            streaming endpoint → GenSX ExecuteChat workflow
+lib/ai/tools/legal-search.ts    six-phase research pipeline (router · CRAG · rerank · bouncer · Self-RAG · critics)
+lib/ai/models.ts                16 industry personas (system prompts + guardrails)
+lib/ai/providers.ts             DeepSeek / Mistral provider, reasoning middleware, R1 fetch shim
+lib/rag/                        Chroma client · chunker + deriveAuthorityTier · embeddings · citation validation / APA / concept linking
+lib/workflows/                  GenSX components wrapping streamText and tools
+scripts/                        eCFR / Federal Register / seeded-doctrine ingestion
+artifacts/, components/         artifact editor, thought-process timeline, chat UI
 ```
 
-## 🔧 Configuration
+## Built on
 
-### AI Models
+Started from [vercel/ai-chatbot](https://github.com/vercel/ai-chatbot) (chat shell, artifact editor, auth, base Drizzle schema). Everything legal — the retrieval pipeline, knowledge base and ingestion, authority tiers and citation grounding, the critic ensemble, industry personas, the timeline UI, provider layer, Google Docs export and the marketing site — is Elle.
 
-Configure AI models in `lib/ai/models.ts`:
+## Status
 
-```typescript
-export const chatModels: Array<ChatModel> = [
-  {
-    id: "elle-general-base",
-    name: "elle-general-base",
-    description: "General base model for all industries",
-    prompt: `**Role**: Senior Corporate Counsel...`
-  },
-  // ... more models
-];
-```
+Early access. Known gaps: no automated evaluation harness or test suite yet (`pnpm test` is wired to Playwright but `tests/` is empty); the corpus is federal — state law enters only through seeded doctrines.
 
-### Authentication
+## License
 
-Authentication is configured in `app/(auth)/auth.ts` and `app/(auth)/auth.config.ts`. Supports:
-- Email/password authentication
-- Google OAuth
-- GitHub OAuth
-
-### Database Schema
-
-The database schema is defined in `lib/db/schema.ts` with the following main tables:
-- `User`: User accounts and authentication
-- `Chat`: Chat conversations
-- `Message`: Individual messages in chats
-- `Document`: Artifact documents
-- `Suggestion`: Document suggestions
-- `Vote`: Message voting system
-
-## 🎨 Customization
-
-### Adding New AI Models
-
-1. Add model configuration to `lib/ai/models.ts`
-2. Update the model selector component
-3. Test with different prompts and guardrails
-
-### Creating Custom Artifacts
-
-1. Create artifact folder in `artifacts/`
-2. Implement `client.tsx` and `server.ts`
-3. Add to artifact definitions
-4. Update database schema
-
-See `docs/03-artifacts.md` for detailed instructions.
-
-### Styling and Theming
-
-- Uses Tailwind CSS for styling
-- Dark/light theme support with `next-themes`
-- Customizable color schemes in `tailwind.config.ts`
-
-## 🚀 Deployment
-
-### Vercel (Recommended)
-
-1. Connect your GitHub repository to Vercel
-2. Set environment variables in Vercel dashboard
-3. Deploy automatically on push to main branch
-
-### Other Platforms
-
-The application can be deployed to any platform that supports Next.js:
-- Railway
-- Render
-- DigitalOcean App Platform
-- AWS Amplify
-
-## 📖 Documentation
-
-- [Quick Start Guide](docs/01-quick-start.md)
-- [Updating AI Models](docs/02-update-models.md)
-- [Artifacts System](docs/03-artifacts.md)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the GitHub repository
-- Check the documentation in the `docs/` folder
-- Review the code examples in the `artifacts/` directory
-
-## 🔮 Roadmap
-
-- [ ] Additional industry-specific models
-- [ ] Enhanced document collaboration features
-- [ ] Integration with legal databases
-- [ ] Mobile application
-- [ ] API for third-party integrations
-- [ ] Advanced compliance monitoring
-
----
-
-**Elle AI** - Empowering startups with intelligent legal guidance across all industries.
+Apache-2.0 — see [LICENSE](LICENSE). Includes code from vercel/ai-chatbot, © Vercel, Inc., under the same license.
